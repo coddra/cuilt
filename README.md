@@ -21,6 +21,8 @@ cc do.c -o do
 ./do build
 ```
 
+You don't have to build it ever again, if you change the configuration, it will automatically rebuild itself.
+
 Note, that `cuilt.h` contains the main function and other impementations too. To use `cuilt.h` as a regular
 header file, define `_CUILT_NO_IMPLEMENTATION` before including it.
 
@@ -44,11 +46,29 @@ CONFIG({
     },
     .process = {                    // can be set to customize the processes
         .init = NULL,               // init function that will be called before any command
-        .build = &___build,         // build function (default builds from src to bin with all c files)
+        .build = &___build,         // build function
         .run = &___run,             // run function
         .test = NULL,               // test function
         .clean = NULL,              // clean function
     },
     .log_level = LOG_INFO,          // log level
 })
+
+// in cuilt.h
+int ___build(strlist argv) {
+    // build the executable using the set compiler and flags, 
+    // from c files in the src directory and into the bin directory
+    // with the set name
+    return CC(SOURCEFILES, OUTPUT);
+}
+
+int ___run(strlist argv) {
+    if (!exists(OUTPUT)) {
+        int res = config.process.build(argv);
+        if (res != 0)
+            FATAL("cannot build executable");
+    }
+
+    return RUN(OUTPUT);
+}
 ```
