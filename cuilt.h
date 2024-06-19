@@ -38,7 +38,7 @@
 
 typedef struct {
     size_t count;
-    char **items;
+    char** items;
 } strlist;
 
 enum LOG_LEVEL {
@@ -58,15 +58,15 @@ struct process_config_t {
     process_t clean;
 };
 struct project_config_t {
-    char *name;
-    char *src_d;
-    char *bin_d;
-    char *test_d;
-    char *build_c;
-    char *build_exe;
+    char* name;
+    char* src_d;
+    char* bin_d;
+    char* test_d;
+    char* build_c;
+    char* build_exe;
 };
 struct cc_config_t {
-    char *command;
+    char* command;
     strlist flags;
 };
 struct config_t {
@@ -85,7 +85,7 @@ struct config_t merge_config(struct config_t a, struct config_t b);
     return res; \
 }
 
-void msg(enum LOG_LEVEL level, char *fmt, ...);
+void msg(enum LOG_LEVEL level, char* fmt, ...);
 #define INFO(...) msg(LOG_INFO, __VA_ARGS__)
 #define WARN(...) msg(LOG_WARN, __VA_ARGS__)
 #define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
@@ -95,7 +95,7 @@ void msg(enum LOG_LEVEL level, char *fmt, ...);
     do { \
         strlist ___list = list; \
         for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
-            char *item = ___list.items[___i]; \
+            char* item = ___list.items[___i]; \
             do \
                 body \
             while (0); \
@@ -104,10 +104,10 @@ void msg(enum LOG_LEVEL level, char *fmt, ...);
 
 strlist mklist(size_t count, ...);
 strlist listclone(strlist list);
-strlist listappend(strlist list, char *item);
+strlist listappend(strlist list, char* item);
 strlist listconcat(strlist a, strlist b);
-char *listjoin(char *sep, strlist list);
-strlist joineach(char *sep, char *body, strlist list);
+char* listjoin(char* sep, strlist list);
+strlist joineach(char* sep, char* body, strlist list);
 #define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 #ifdef _WIN32
@@ -117,14 +117,14 @@ strlist joineach(char *sep, char *body, strlist list);
 
 #define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
 
-strlist filesin(char *dir);
-bool endswith(char *a, char *b);
-strlist filtered(strlist list, char *ext);
-char *own_path();
-char *cwd();
-char *basename(char *path);
-char *noext(char *path);
-bool modifiedlater(char *p1, char *p2);
+strlist filesin(char* dir);
+bool endswith(char* a, char* b);
+strlist filtered(strlist list, char* ext);
+char* own_path();
+char* cwd();
+char* basename(char* path);
+char* noext(char* path);
+bool modifiedlater(char* p1, char* p2);
 #define FILES(dir, ext) filtered(filesin(dir), ext)
 
 int run(strlist cmd);
@@ -175,7 +175,7 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
 }
 
 // logging
-void msg(enum LOG_LEVEL level, char *fmt, ...) {
+void msg(enum LOG_LEVEL level, char* fmt, ...) {
     if (level < config.log_level)
         return;
     
@@ -202,41 +202,41 @@ void msg(enum LOG_LEVEL level, char *fmt, ...) {
 // strlist
 strlist mklist(size_t count, ...) {
     strlist res = { 0, NULL };
-    res.items = (char **)malloc(sizeof(char *) * count);
+    res.items = (char**)malloc(sizeof(char*) * count);
     va_list ap;
     va_start(ap, count);
     for (size_t i = 0; i < count; i++)
-        res.items[i] = va_arg(ap, char *);
+        res.items[i] = va_arg(ap, char*);
     va_end(ap);
     res.count = count;
     return res;
 }
 
 strlist listclone(strlist list) {
-    strlist res = { 0, malloc(sizeof(char *) * list.count) };
-    memcpy(res.items, list.items, sizeof(char *) * list.count);
+    strlist res = { 0, malloc(sizeof(char*) * list.count) };
+    memcpy(res.items, list.items, sizeof(char*) * list.count);
     res.count = list.count;
     return res;
 }
 
-strlist listappend(strlist list, char *item) {
-    list.items = realloc(list.items, sizeof(char *) * (list.count + 1));
+strlist listappend(strlist list, char* item) {
+    list.items = realloc(list.items, sizeof(char*) * (list.count + 1));
     list.items[list.count] = item;
     list.count += 1;
     return list;
 }
 
 strlist listconcat(strlist a, strlist b) {
-    a.items = realloc(a.items, sizeof(char *) * (a.count + b.count));
-    memcpy(a.items + a.count, b.items, sizeof(char *) * b.count);
+    a.items = realloc(a.items, sizeof(char*) * (a.count + b.count));
+    memcpy(a.items + a.count, b.items, sizeof(char*) * b.count);
     a.count += b.count;
     return a;
 }
 
-char *listjoin(char *sep, strlist list) {
+char* listjoin(char* sep, strlist list) {
     size_t sep_len = strlen(sep);
     size_t len = 0;
-    char *res = NULL;
+    char* res = NULL;
     for (size_t i = 0; i < list.count; i++) {
         size_t item_len = strlen(list.items[i]);
         res = realloc(res, len + item_len + sep_len + 1);
@@ -251,7 +251,7 @@ char *listjoin(char *sep, strlist list) {
     return res;
 }
 
-strlist joineach(char *sep, char *body, strlist list) {
+strlist joineach(char* sep, char* body, strlist list) {
     strlist res = { 0, NULL };
     for (size_t i = 0; i < list.count; i++)
         res = listappend(res, strcat(strcat(body, sep), list.items[i]));
@@ -259,14 +259,14 @@ strlist joineach(char *sep, char *body, strlist list) {
 }
 
 // path
-strlist filesin(char *dir) {
+strlist filesin(char* dir) {
     strlist res = { 0, NULL };
-    DIR *d = opendir(dir);
+    DIR* d = opendir(dir);
     if (d == NULL)
         return res;
-    struct dirent *de;
+    struct dirent* de;
     while ((de = readdir(d)) != NULL) {
-        char *name = de->d_name;
+        char* name = de->d_name;
         if (name[0] == '.')
             continue;
         res = listappend(res, PATH(dir, name));
@@ -275,7 +275,7 @@ strlist filesin(char *dir) {
     return res;
 }
 
-bool endswith(char *a, char *b) {
+bool endswith(char* a, char* b) {
     size_t alen = strlen(a);
     size_t blen = strlen(b);
     if (alen < blen)
@@ -283,7 +283,7 @@ bool endswith(char *a, char *b) {
     return memcmp(a + alen - blen, b, blen) == 0;
 }
 
-strlist filtered(strlist list, char *ext) {
+strlist filtered(strlist list, char* ext) {
     strlist res = { 0, NULL };
     for (size_t i = 0; i < list.count; i++) {
         if (endswith(list.items[i], ext))
@@ -292,15 +292,15 @@ strlist filtered(strlist list, char *ext) {
     return res;
 }
 
-char *basename(char *path) {
-    char *res = strrchr(path, '/');
+char* basename(char* path) {
+    char* res = strrchr(path, '/');
     if (res == NULL)
         return path;
     return res + 1;
 }
 
-char *noext(char *path) {
-    char *tmp = strrchr(path, '.');
+char* noext(char* path) {
+    char* tmp = strrchr(path, '.');
     if (tmp == NULL)
         return path;
     char* res = malloc(tmp - path + 1);
@@ -308,13 +308,13 @@ char *noext(char *path) {
     return res;
 }
 
-char *cwd() {
-    char *res = (char*)malloc(PATH_MAX);
+char* cwd() {
+    char* res = (char*)malloc(PATH_MAX);
     getcwd(res, PATH_MAX);
     return res;
 }
 
-bool modifiedlater(char *p1, char *p2)
+bool modifiedlater(char* p1, char* p2)
 {
 #ifdef _WIN32
     FILETIME p1_time, p2_time;
@@ -375,7 +375,7 @@ int run(strlist cmd) {
     if (cmd.count == 0)
         return 0;
 
-    char *strcmd = listjoin(" ", cmd);
+    char* strcmd = listjoin(" ", cmd);
     cmd = listappend(listclone(cmd), NULL);
 
 #ifdef _WIN32
@@ -454,7 +454,7 @@ int ___build(strlist argv) {
     return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     strlist args = { argc - 1, argv + 1 };
     config = merge_config(default_config(), ___config());
 
