@@ -21,6 +21,9 @@ cc do.c -o do
 ./do build
 ```
 
+Note, that `cuilt.h` contains the main function and other impementations too. To use `cuilt.h` as a regular
+header file, define `_CUILT_NO_IMPLEMENTATION` before including it.
+
 Currently available config options are (with the default values):
 
 ```c
