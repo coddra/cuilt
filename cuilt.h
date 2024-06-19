@@ -11,7 +11,12 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-#else
+#elif __linux__
+#define __USE_XOPEN2K
+#include <linux/limits.h>
+#include <unistd.h>
+#elif __APPLE__
+#include <libproc.h>
 #include <unistd.h>
 #endif
 
@@ -22,21 +27,13 @@
     _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43,   \
     _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, N, ...) N
 
-#define FOREACH(item, list, body) \
-    do { \
-        strlist ___list = list; \
-        for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
-            char *item = ___list.items[___i]; \
-            do \
-                body \
-            while (0); \
-        } \
-    } while (0)
-
 typedef struct {
     size_t count;
     char **items;
 } strlist;
+
+strlist mklist(size_t count, ...);
+#define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 enum LOG_LEVEL {
     LOG_INFO = 0,
@@ -45,10 +42,56 @@ enum LOG_LEVEL {
     LOG_FATAL = 3,
 };
 
-enum LOG_LEVEL log_level = LOG_WARN;
+struct project_config_t {
+    char *name;
+    char *src_d;
+    char *bin_d;
+    char *test_d;
+    char *build_c;
+    char *build_exe;
+};
 
+struct cc_config_t {
+    char *command;
+    strlist flags;
+};
+
+struct config_t {
+    struct project_config_t project;
+    struct cc_config_t cc;
+    enum LOG_LEVEL log_level;
+};
+
+struct config_t config;
+
+char* own_path();
+char* cwd();
+char* basename(char *path);
+
+// config
+struct config_t default_config() {
+    struct config_t res = {
+        .project = {
+            .name = basename(cwd()),
+            .src_d = "src",
+            .bin_d = "bin",
+            .test_d = "test",
+            .build_c = "build.c",
+            .build_exe = own_path(),
+        },
+        .cc = {
+            .command = "gcc",
+            .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
+        },
+        .log_level = LOG_INFO,
+    };
+
+    return res;
+}
+
+// logging
 void msg(enum LOG_LEVEL level, char *fmt, ...) {
-    if (level < log_level)
+    if (level < config.log_level)
         return;
     
     switch (level) {
@@ -74,6 +117,19 @@ void msg(enum LOG_LEVEL level, char *fmt, ...) {
 #define INFO(...) msg(LOG_INFO, __VA_ARGS__)
 #define WARN(...) msg(LOG_WARN, __VA_ARGS__)
 #define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
+#define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
+
+// strlist
+#define FOREACH(item, list, body) \
+    do { \
+        strlist ___list = list; \
+        for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
+            char *item = ___list.items[___i]; \
+            do \
+                body \
+            while (0); \
+        } \
+    } while (0)
 
 strlist mklist(size_t count, ...) {
     strlist res = { 0, NULL };
@@ -86,8 +142,6 @@ strlist mklist(size_t count, ...) {
     res.count = count;
     return res;
 }
-
-#define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 strlist listclone(strlist list) {
     strlist res = { 0, malloc(sizeof(char *) * list.count) };
@@ -135,6 +189,7 @@ strlist joineach(char *sep, char *body, strlist list) {
     return res;
 }
 
+// path
 #ifdef _WIN32
 #define PATH_SEP "\\"
 #else
@@ -185,12 +240,12 @@ char *basename(char *path) {
 }
 
 char *noext(char *path) {
-    char *copy = strdup(path);
-    char *res = strrchr(copy, '.');
-    if (res == NULL)
-        return copy;
-    *res = '\0';
-    return copy;
+    char *tmp = strrchr(path, '.');
+    if (tmp == NULL)
+        return path;
+    char* res = malloc(tmp - path + 1);
+    memcpy(res, path, tmp - path);
+    return res;
 }
 
 char *cwd() {
@@ -230,6 +285,32 @@ bool modifiedlater(const char *p1, const char *p2)
 #endif
 }
 
+char* own_path() {
+#ifdef _WIN32
+    char buffer[MAX_PATH] = {0};
+    GetModuleFileName(NULL, buffer, MAX_PATH);
+    size_t len = strlen(buffer);
+    
+#elif __linux__
+    char buffer[PATH_MAX] = {0};
+    ssize_t len = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
+    if (len < 0)
+        return NULL;
+
+#elif __APPLE__
+    char buffer[PATH_MAX] = {0};
+    pid_t pid = getpid();
+    if (proc_pidpath(pid, buffer, PATH_MAX) < 0)
+        buffer[0] = '\0';
+    size_t len = strlen(buffer);
+#endif
+
+    char* result = (char*)malloc(len + 1);
+    strcpy(result, buffer);
+    return result;
+}
+
+// run
 int run(strlist cmd) {
     if (cmd.count == 0)
         return 0;
@@ -300,38 +381,16 @@ int run(strlist cmd) {
 }
 
 #define RUN(...) run(MKLIST(__VA_ARGS__))
-#define RUNF(files, ...) run(listconcat(MKLIST(__VA_ARGS__), files))
+#define RUNL(files, ...) run(listconcat(MKLIST(__VA_ARGS__), files))
 
-#ifndef CC
-#define CC "cc"
-#endif
+#define CC(files, out) RUNL(listconcat(config.cc.flags, files), config.cc.command, "-o", out)
+#define SOURCEFILES FILES(config.project.src_d, ".c")
+#define OUTPUT PATH(config.project.bin_d, config.project.name)
 
-#ifndef CFLAGS
-#define CFLAGS ""
-#endif
-
-#ifndef SRC
-#define SRC "src"
-#endif
-
-#ifndef BIN
-#define BIN "bin"
-#endif
-
-#ifndef TEST
-#define TEST "test"
-#endif
-
-#ifndef NAME
-#define NAME basename(cwd())
-#endif
-
-#define EXFILE "build"
-#define SRCFILE "build.c"
-
+// build
 #ifndef NO_BUILD
 int build(strlist args) {
-    RUNF(FILES(SRC, ".c"), CC, CFLAGS, "-o", PATH(BIN, NAME));
+    CC(SOURCEFILES, OUTPUT);
 
     return 0;
 }
@@ -345,17 +404,20 @@ void init(strlist args);
 
 int main(int argc, char *argv[]) {
     strlist args = { argc - 1, argv + 1 };
+    config = default_config();
 
 #ifdef INIT
     init(args);
 #endif
 
-    if (modifiedlater(SRCFILE, EXFILE)) {
+    if (modifiedlater(config.project.build_c, config.project.build_exe)) {
         INFO("Rebuilding...");
-        RUN(CC, "-o", EXFILE, SRCFILE);
-        RUNF(args, "./"EXFILE);
+        RUN(config.cc.command, "-o", config.project.build_exe, config.project.build_c);
+        RUNL(args, config.project.build_exe);
         return 0;
     }
 
     return build(args);
 }
+
+
