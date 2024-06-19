@@ -1,3 +1,6 @@
+#ifndef _CUILT_H
+#define _CUILT_H
+
 #include <dirent.h>
 #include <errno.h>
 #include <stdarg.h>
@@ -10,14 +13,20 @@
 #include <sys/stat.h>
 
 #ifdef _WIN32
-#include <Windows.h>
+#   include <windows.h>
+
+#   define PATH_SEP "\\"
 #elif __linux__
-#define __USE_XOPEN2K
-#include <linux/limits.h>
-#include <unistd.h>
+#   define __USE_XOPEN2K
+#   include <linux/limits.h>
+#   include <unistd.h>
+
+#   define PATH_SEP "/"
 #elif __APPLE__
-#include <libproc.h>
-#include <unistd.h>
+#   include <libproc.h>
+#   include <unistd.h>
+
+#   define PATH_SEP "/"
 #endif
 
 #define ARG_COUNT(...) ___ARG_COUNT(__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, \
@@ -31,9 +40,6 @@ typedef struct {
     size_t count;
     char **items;
 } strlist;
-
-strlist mklist(size_t count, ...);
-#define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 enum LOG_LEVEL {
     LOG_INFO = 0,
@@ -50,23 +56,67 @@ struct project_config_t {
     char *build_c;
     char *build_exe;
 };
-
 struct cc_config_t {
     char *command;
     strlist flags;
 };
-
 struct config_t {
     struct project_config_t project;
     struct cc_config_t cc;
     enum LOG_LEVEL log_level;
 };
-
 struct config_t config;
+struct config_t default_config();
 
-char* own_path();
-char* cwd();
-char* basename(char *path);
+void msg(enum LOG_LEVEL level, char *fmt, ...);
+#define INFO(...) msg(LOG_INFO, __VA_ARGS__)
+#define WARN(...) msg(LOG_WARN, __VA_ARGS__)
+#define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
+#define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
+
+#define FOREACH(item, list, body) \
+    do { \
+        strlist ___list = list; \
+        for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
+            char *item = ___list.items[___i]; \
+            do \
+                body \
+            while (0); \
+        } \
+    } while (0)
+
+strlist mklist(size_t count, ...);
+strlist listclone(strlist list);
+strlist listappend(strlist list, char *item);
+strlist listconcat(strlist a, strlist b);
+char *listjoin(char *sep, strlist list);
+strlist joineach(char *sep, char *body, strlist list);
+#define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
+
+#ifdef _WIN32
+#else
+#define PATH_SEP "/"
+#endif
+
+#define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
+
+strlist filesin(char *dir);
+bool endswith(char *a, char *b);
+strlist filtered(strlist list, char *ext);
+char *own_path();
+char *cwd();
+char *basename(char *path);
+char *noext(char *path);
+bool modifiedlater(char *p1, char *p2);
+#define FILES(dir, ext) filtered(filesin(dir), ext)
+
+int run(strlist cmd);
+
+#endif // _CUILT_H
+
+
+
+#ifndef _CUILT_NO_IMPLEMENTATION
 
 // config
 struct config_t default_config() {
@@ -114,23 +164,7 @@ void msg(enum LOG_LEVEL level, char *fmt, ...) {
     }
 }
 
-#define INFO(...) msg(LOG_INFO, __VA_ARGS__)
-#define WARN(...) msg(LOG_WARN, __VA_ARGS__)
-#define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
-#define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
-
 // strlist
-#define FOREACH(item, list, body) \
-    do { \
-        strlist ___list = list; \
-        for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
-            char *item = ___list.items[___i]; \
-            do \
-                body \
-            while (0); \
-        } \
-    } while (0)
-
 strlist mklist(size_t count, ...) {
     strlist res = { 0, NULL };
     res.items = (char **)malloc(sizeof(char *) * count);
@@ -190,13 +224,6 @@ strlist joineach(char *sep, char *body, strlist list) {
 }
 
 // path
-#ifdef _WIN32
-#define PATH_SEP "\\"
-#else
-#define PATH_SEP "/"
-#endif
-#define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
-
 strlist filesin(char *dir) {
     strlist res = { 0, NULL };
     DIR *d = opendir(dir);
@@ -230,8 +257,6 @@ strlist filtered(strlist list, char *ext) {
     return res;
 }
 
-#define FILES(dir, ext) filtered(filesin(dir), ext)
-
 char *basename(char *path) {
     char *res = strrchr(path, '/');
     if (res == NULL)
@@ -254,7 +279,7 @@ char *cwd() {
     return res;
 }
 
-bool modifiedlater(const char *p1, const char *p2)
+bool modifiedlater(char *p1, char *p2)
 {
 #ifdef _WIN32
     FILETIME p1_time, p2_time;
@@ -348,7 +373,7 @@ int run(strlist cmd) {
     pid_t pid = fork();
 
     if (pid < 0) {
-        ERROR("Task failed 1: %s", strcmd);
+        ERROR("Task failed: %s", strcmd);
     } else if (pid == 0) {
         INFO("%s", strcmd);
         if (execvp(cmd.items[0], cmd.items) < 0) {
@@ -420,4 +445,4 @@ int main(int argc, char *argv[]) {
     return build(args);
 }
 
-
+#endif // _CUILT_NO_IMPLEMENTATION
