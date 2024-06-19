@@ -40,7 +40,7 @@
 
 typedef struct {
     size_t count;
-    char** items;
+    const char** items;
 } strlist;
 
 enum LOG_LEVEL {
@@ -60,15 +60,15 @@ struct process_config_t {
     process_t clean;
 };
 struct project_config_t {
-    char* name;
-    char* src_d;
-    char* bin_d;
-    char* test_d;
-    char* do_c;
-    char* build_exe;
+    const char* name;
+    const char* src_d;
+    const char* bin_d;
+    const char* test_d;
+    const char* do_c;
+    const char* build_exe;
 };
 struct cc_config_t {
-    char* command;
+    const char* command;
     strlist flags;
 };
 struct config_t {
@@ -78,16 +78,16 @@ struct config_t {
     enum LOG_LEVEL log_level;
 };
 extern struct config_t config;
-struct config_t default_config();
-struct config_t ___config();
+struct config_t default_config(void);
+struct config_t ___config(void);
 struct config_t merge_config(struct config_t a, struct config_t b);
-#define CONFIG(...) struct config_t ___config() { \
+#define CONFIG(...) struct config_t ___config(void) { \
     struct config_t res = __VA_ARGS__; \
     res.project.do_c = __FILE__; \
     return res; \
 }
 
-void msg(enum LOG_LEVEL level, char* fmt, ...);
+void msg(enum LOG_LEVEL level, const char* fmt, ...);
 #define INFO(...) msg(LOG_INFO, __VA_ARGS__)
 #define WARN(...) msg(LOG_WARN, __VA_ARGS__)
 #define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
@@ -106,23 +106,23 @@ void msg(enum LOG_LEVEL level, char* fmt, ...);
 
 strlist mklist(size_t count, ...);
 strlist listclone(strlist list);
-strlist listappend(strlist list, char* item);
+strlist listappend(strlist list, const char* item);
 strlist listconcat(strlist a, strlist b);
 strlist listremove(strlist list, size_t item);
-char* listjoin(char* sep, strlist list);
-strlist joineach(char* sep, char* body, strlist list);
+char* listjoin(const char* sep, strlist list);
+strlist joineach(const char* sep, const char* body, strlist list);
 #define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 #define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
 
-strlist filesin(char* dir);
-bool endswith(char* a, char* b);
-strlist filtered(strlist list, char* ext);
-char* own_path();
-char* cwd();
-char* basename(char* path);
-char* noext(char* path);
-bool modifiedlater(char* p1, char* p2);
+strlist filesin(const char* dir);
+bool endswith(const char* a, const char* b);
+strlist filtered(strlist list, const char* ext);
+char* own_path(void);
+char* cwd(void);
+const char* basename(const char* path);
+const char* noext(const char* path);
+bool modifiedlater(const char* p1, const char* p2);
 #define FILES(dir, ext) filtered(filesin(dir), ext)
 
 int run(strlist cmd);
@@ -136,7 +136,7 @@ int run(strlist cmd);
 // config
 int ___build(strlist argv);
 struct config_t config;
-struct config_t default_config() {
+struct config_t default_config(void) {
     struct config_t res = {
         .project = {
             .name = basename(cwd()),
@@ -150,7 +150,6 @@ struct config_t default_config() {
             .command = "cc",
             .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         },
-        .log_level = LOG_INFO,
         .process = {
             .init = NULL,
             .build = &___build,
@@ -158,6 +157,7 @@ struct config_t default_config() {
             .test = NULL,
             .clean = NULL,
         },
+        .log_level = LOG_INFO,
     };
     return res;
 }
@@ -176,22 +176,22 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
 }
 
 // logging
-void msg(enum LOG_LEVEL level, char* fmt, ...) {
+void msg(enum LOG_LEVEL level, const char* fmt, ...) {
     if (level < config.log_level)
         return;
     
     switch (level) {
-        case LOG_INFO: printf("[INF] "); break;
-        case LOG_WARN: printf("[WRN] "); break;
-        case LOG_ERROR: printf("[ERR] "); break;
-        case LOG_FATAL: printf("[FTL] "); break;
+        case LOG_INFO: puts("[INF] "); break;
+        case LOG_WARN: puts("[WRN] "); break;
+        case LOG_ERROR: puts("[ERR] "); break;
+        case LOG_FATAL: puts("[FTL] "); break;
     }
 
     va_list ap;
     va_start(ap, fmt);
     vprintf(fmt, ap);
     va_end(ap);
-    printf("\n");
+    puts("\n");
 
     if (level == LOG_FATAL) {
         fflush(stdout);
@@ -203,7 +203,7 @@ void msg(enum LOG_LEVEL level, char* fmt, ...) {
 // strlist
 strlist mklist(size_t count, ...) {
     strlist res = { 0, NULL };
-    res.items = (char**)malloc(sizeof(char*) * count);
+    res.items = (const char**)malloc(sizeof(char*) * count);
     va_list ap;
     va_start(ap, count);
     for (size_t i = 0; i < count; i++)
@@ -214,40 +214,40 @@ strlist mklist(size_t count, ...) {
 }
 
 strlist listclone(strlist list) {
-    strlist res = { 0, malloc(sizeof(char*) * list.count) };
+    strlist res = { 0, (const char**)malloc(sizeof(char*) * list.count) };
     memcpy(res.items, list.items, sizeof(char*) * list.count);
     res.count = list.count;
     return res;
 }
 
-strlist listappend(strlist list, char* item) {
-    list.items = realloc(list.items, sizeof(char*) * (list.count + 1));
+strlist listappend(strlist list, const char* item) {
+    list.items = (const char**)realloc(list.items, sizeof(char*) * (list.count + 1));
     list.items[list.count] = item;
     list.count += 1;
     return list;
 }
 
 strlist listconcat(strlist a, strlist b) {
-    a.items = realloc(a.items, sizeof(char*) * (a.count + b.count));
+    a.items = (const char**)realloc(a.items, sizeof(char*) * (a.count + b.count));
     memcpy(a.items + a.count, b.items, sizeof(char*) * b.count);
     a.count += b.count;
     return a;
 }
 
 strlist listremove(strlist list, size_t item) {
-    list.items = realloc(list.items, sizeof(char*) * (list.count - 1));
+    list.items = (const char**)realloc(list.items, sizeof(char*) * (list.count - 1));
     memmove(list.items + item, list.items + item + 1, sizeof(char*) * (list.count - item - 1));
     list.count -= 1;
     return list;
 }
 
-char* listjoin(char* sep, strlist list) {
+char* listjoin(const char* sep, strlist list) {
     size_t sep_len = strlen(sep);
     size_t len = 0;
     char* res = NULL;
     for (size_t i = 0; i < list.count; i++) {
         size_t item_len = strlen(list.items[i]);
-        res = realloc(res, len + item_len + sep_len + 1);
+        res = (char*)realloc(res, len + item_len + sep_len + 1);
         memcpy(res + len, list.items[i], item_len);
         len += item_len;
         if (i < list.count - 1) {
@@ -259,15 +259,30 @@ char* listjoin(char* sep, strlist list) {
     return res;
 }
 
-strlist joineach(char* sep, char* body, strlist list) {
+strlist joineach(const char* sep, const char* body, strlist list) {
     strlist res = { 0, NULL };
-    for (size_t i = 0; i < list.count; i++)
-        res = listappend(res, strcat(strcat(body, sep), list.items[i]));
+    for (size_t i = 0; i < list.count; i++) {
+        char* item = (char*)malloc(1 * sizeof(char));
+        *item = '\0';
+        res = listappend(res, strcat(strcat(strcat(item, body), sep), list.items[i]));
+    }
+    return res;
+}
+
+strlist split(const char* sep, const char* body) {
+    strlist res = { 0, NULL };
+    char* tmp = (char*)malloc(strlen(body) + 1);
+    memcpy(tmp, body, strlen(body) + 1);
+    char* p = strtok(tmp, sep);
+    while (p) {
+        res = listappend(res, p);
+        p = strtok(NULL, sep);
+    }
     return res;
 }
 
 // path
-strlist filesin(char* dir) {
+strlist filesin(const char* dir) {
     strlist res = { 0, NULL };
     DIR* d = opendir(dir);
     if (d == NULL)
@@ -283,7 +298,7 @@ strlist filesin(char* dir) {
     return res;
 }
 
-bool endswith(char* a, char* b) {
+bool endswith(const char* a, const char* b) {
     size_t alen = strlen(a);
     size_t blen = strlen(b);
     if (alen < blen)
@@ -291,7 +306,7 @@ bool endswith(char* a, char* b) {
     return memcmp(a + alen - blen, b, blen) == 0;
 }
 
-strlist filtered(strlist list, char* ext) {
+strlist filtered(strlist list, const char* ext) {
     strlist res = { 0, NULL };
     for (size_t i = 0; i < list.count; i++) {
         if (endswith(list.items[i], ext))
@@ -300,29 +315,29 @@ strlist filtered(strlist list, char* ext) {
     return res;
 }
 
-char* basename(char* path) {
+const char* basename(const char* path) {
     char* res = strrchr(path, '/');
     if (res == NULL)
         return path;
     return res + 1;
 }
 
-char* noext(char* path) {
-    char* tmp = strrchr(path, '.');
+const char* noext(const char* path) {
+    const char* tmp = strrchr(path, '.');
     if (tmp == NULL)
         return path;
-    char* res = malloc(tmp - path + 1);
+    char* res = (char*)malloc(tmp - path + 1);
     memcpy(res, path, tmp - path);
     return res;
 }
 
-char* cwd() {
+char* cwd(void) {
     char* res = (char*)malloc(PATH_MAX);
     getcwd(res, PATH_MAX);
     return res;
 }
 
-bool modifiedlater(char* p1, char* p2)
+bool modifiedlater(const char* p1, const char* p2)
 {
 #ifdef _WIN32
     FILETIME p1_time, p2_time;
@@ -353,7 +368,7 @@ bool modifiedlater(char* p1, char* p2)
 #endif
 }
 
-char* own_path() {
+char* own_path(void) {
 #ifdef _WIN32
     char buffer[MAX_PATH] = {0};
     GetModuleFileName(NULL, buffer, MAX_PATH);
@@ -419,7 +434,7 @@ int run(strlist cmd) {
         ERROR("Task failed: %s", strcmd);
     } else if (pid == 0) {
         INFO("%s", strcmd);
-        if (execvp(cmd.items[0], cmd.items) < 0) {
+        if (execvp(cmd.items[0], (char* const*)cmd.items) < 0) {
             ERROR("Task failed: %s", strcmd);
             return 1;
         }
@@ -467,10 +482,10 @@ int ___build(strlist argv) {
     return 0;
 }
 
-int main(int argc, char* argv[]) {
-    strlist _argv = { argc - 1, argv + 1 };
+int main(int argc, const char* argv[]) {
+    strlist _argv = { (size_t)(argc - 1), argv + 1 };
     config = merge_config(default_config(), ___config());
-    char* command = NULL;
+    const char* command = NULL;
 
     if (_argv.count == 0 || _argv.items[0][0] == '-') {
         command = COMMAND_BUILD;
@@ -483,7 +498,7 @@ int main(int argc, char* argv[]) {
         config.log_level = LOG_FATAL;
 
     for (size_t i = 0; i < _argv.count; i++) {
-        char* arg = _argv.items[i];
+        const char* arg = _argv.items[i];
 
         if (strcmp(arg, "-cc") == 0)
             config.cc.command = _argv.items[++i];
