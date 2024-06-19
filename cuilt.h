@@ -14,7 +14,10 @@
 
 #ifdef _WIN32
 #   include <windows.h>
+#   include <io.h>
 
+#   define access _access
+#   define F_OK 0
 #   define PATH_SEP "\\"
 #elif __linux__
 #   ifndef __USE_XOPEN2K
@@ -118,6 +121,7 @@ strlist joineach(const char* sep, const char* body, strlist list);
 strlist filesin(const char* dir);
 bool endswith(const char* a, const char* b);
 strlist filtered(strlist list, const char* ext);
+bool exists(const char* path);
 char* own_path(void);
 char* cwd(void);
 const char* basename(const char* path);
@@ -135,6 +139,7 @@ int run(strlist cmd);
 
 // config
 int ___build(strlist argv);
+int ___run(strlist argv);
 struct config_t config;
 struct config_t default_config(void) {
     struct config_t res = {
@@ -153,7 +158,7 @@ struct config_t default_config(void) {
         .process = {
             .init = NULL,
             .build = &___build,
-            .run = NULL,
+            .run = &___run,
             .test = NULL,
             .clean = NULL,
         },
@@ -181,17 +186,17 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...) {
         return;
     
     switch (level) {
-        case LOG_INFO: puts("[INF] "); break;
-        case LOG_WARN: puts("[WRN] "); break;
-        case LOG_ERROR: puts("[ERR] "); break;
-        case LOG_FATAL: puts("[FTL] "); break;
+        case LOG_INFO: fputs("[INF] ", stderr); break;
+        case LOG_WARN: fputs("[WRN] ", stderr); break;
+        case LOG_ERROR: fputs("[ERR] ", stderr); break;
+        case LOG_FATAL: fputs("[FTL] ", stderr); break;
     }
 
     va_list ap;
     va_start(ap, fmt);
-    vprintf(fmt, ap);
+    vfprintf(stderr, fmt, ap);
     va_end(ap);
-    puts("\n");
+    fputs("\n", stderr);
 
     if (level == LOG_FATAL) {
         fflush(stdout);
@@ -344,12 +349,12 @@ bool modifiedlater(const char* p1, const char* p2)
 
     Fd p1_fd = fd_open_for_read(p1);
     if (!GetFileTime(p1_fd, NULL, NULL, &p1_time))
-        ERROR("Could not get time of %s", p1);
+        ERROR("could not get time of %s", p1);
     fd_close(p1_fd);
 
     Fd p2_fd = fd_open_for_read(p2);
     if (!GetFileTime(p2_fd, NULL, NULL, &p2_time))
-        ERROR("Could not get time of %s", p2);
+        ERROR("could not get time of %s", p2);
     fd_close(p2_fd);
 
     return CompareFileTime(&p1_time, &p2_time) == 1;
@@ -357,15 +362,19 @@ bool modifiedlater(const char* p1, const char* p2)
     struct stat statbuf = {0};
 
     if (stat(p1, &statbuf) < 0)
-        ERROR("Could not get time of %s", p1);
+        ERROR("could not get time of %s", p1);
     int p1_time = statbuf.st_mtime;
 
     if (stat(p2, &statbuf) < 0) 
-        ERROR("Could not get time of %s", p2);
+        ERROR("could not get time of %s", p2);
     int p2_time = statbuf.st_mtime;
 
     return p1_time > p2_time;
 #endif
+}
+
+bool exists(const char* path) {
+    return access(path, F_OK) == 0;
 }
 
 char* own_path(void) {
@@ -411,7 +420,7 @@ int run(strlist cmd) {
 
     INFO("%s", strcmd);
     if (!CreateProcessA(NULL, strcmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        ERROR("Task failed: %s", strcmd);
+        ERROR("task failed: %s", strcmd);
         return 1;
     }
 
@@ -424,18 +433,18 @@ int run(strlist cmd) {
     CloseHandle(pi.hProcess);
 
     if (exit_code != 0) {
-        ERROR("Task failed: %s", strcmd);
+        ERROR("task failed: %s", strcmd);
         return exit_code;
     }
 #else
     pid_t pid = fork();
 
     if (pid < 0) {
-        ERROR("Task failed: %s", strcmd);
+        ERROR("task failed: %s", strcmd);
     } else if (pid == 0) {
         INFO("%s", strcmd);
         if (execvp(cmd.items[0], (char* const*)cmd.items) < 0) {
-            ERROR("Task failed: %s", strcmd);
+            ERROR("task failed: %s", strcmd);
             return 1;
         }
     } else {
@@ -443,18 +452,18 @@ int run(strlist cmd) {
         pid_t wpid = waitpid(pid, &status, 0);
 
         if (wpid == -1) {
-            ERROR("Task failed: %s", strcmd);
+            ERROR("task failed: %s", strcmd);
             return 1;
         }
 
         if (WIFEXITED(status)) {
             if (WEXITSTATUS(status) != 0) {
-                ERROR("Task failed: %s", strcmd);
+                ERROR("task failed: %s", strcmd);
                 return WEXITSTATUS(status);
             }
         }
         else {
-            ERROR("Task failed: %s", strcmd);
+            ERROR("task failed: %s", strcmd);
             return 1;
         }
     }
@@ -475,11 +484,19 @@ int run(strlist cmd) {
 #define COMMAND_TEST "test"
 #define COMMAND_CLEAN "clean"
 
-// build
-int ___build(strlist argv) {
-    CC(SOURCEFILES, OUTPUT);
+// commands
+int ___run(strlist argv) {
+    if (!exists(OUTPUT)) {
+        int res = config.process.build(argv);
+        if (res != 0)
+            FATAL("cannot build executable");
+    }
 
-    return 0;
+    return RUN(OUTPUT);
+}
+
+int ___build(strlist argv) {
+    return CC(SOURCEFILES, OUTPUT);
 }
 
 int main(int argc, const char* argv[]) {
@@ -523,7 +540,7 @@ int main(int argc, const char* argv[]) {
     }
 
     if (modifiedlater(config.project.do_c, config.project.build_exe)) {
-        INFO("Rebuilding...");
+        INFO("rebuilding...");
         RUN(config.cc.command, "-o", config.project.build_exe, config.project.do_c);
         RUNL(_argv, config.project.build_exe);
         return 0;
@@ -539,9 +556,10 @@ int main(int argc, const char* argv[]) {
     else if (strcmp(command, COMMAND_CLEAN) == 0 && config.process.clean)
         res = config.process.clean(_argv);
     else
-        FATAL("Unknown command: %s", command);
-
-    FATAL("%s failed with exit code %d", command, res);
+        FATAL("unknown command: %s", command);
+    
+    if (res != 0)
+        FATAL("%s failed with exit code %d", command, res);
 
     return 0;
 }
