@@ -504,6 +504,9 @@ int main(int argc, const char* argv[]) {
     config = merge_config(default_config(), ___config());
     const char* command = NULL;
 
+    if (config.process.init)
+        config.process.init(_argv);
+
     if (_argv.count == 0 || _argv.items[0][0] == '-') {
         command = COMMAND_BUILD;
     } else {
