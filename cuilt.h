@@ -539,6 +539,7 @@ int ___build(strlist argv) {
     return CC(SOURCEFILES, OUTPUT);
 }
 
+#ifndef _CUILT_NO_MAIN
 int main(int argc, const char* argv[]) {
     strlist _argv = { (size_t)(argc - 1), argv + 1 };
     config = merge_config(default_config(), ___config());
@@ -606,6 +607,7 @@ int main(int argc, const char* argv[]) {
 
     return 0;
 }
+#endif // _CUILT_NO_MAIN
 
 #endif // _CUILT_NO_IMPLEMENTATION
 
