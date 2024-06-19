@@ -21,7 +21,7 @@ cc do.c -o do
 ./do build
 ```
 
-You don't have to build it ever again, if you change the configuration, it will automatically rebuild itself.
+You don't have to build the `do` tool ever again, if you change the configuration, it will automatically rebuild itself.
 
 Note, that `cuilt.h` contains the main function and other impementations too. To use `cuilt.h` as a regular
 header file, define `_CUILT_NO_IMPLEMENTATION` before including it.
