@@ -65,8 +65,15 @@ struct config_t {
     struct cc_config_t cc;
     enum LOG_LEVEL log_level;
 };
-struct config_t config;
+extern struct config_t config;
 struct config_t default_config();
+struct config_t ___config();
+struct config_t merge_config(struct config_t a, struct config_t b);
+#define CONFIG(...) struct config_t ___config() { \
+    struct config_t res = __VA_ARGS__; \
+    res.project.build_c = __FILE__; \
+    return res; \
+}
 
 void msg(enum LOG_LEVEL level, char *fmt, ...);
 #define INFO(...) msg(LOG_INFO, __VA_ARGS__)
@@ -119,6 +126,7 @@ int run(strlist cmd);
 #ifndef _CUILT_NO_IMPLEMENTATION
 
 // config
+struct config_t config;
 struct config_t default_config() {
     struct config_t res = {
         .project = {
@@ -130,12 +138,25 @@ struct config_t default_config() {
             .build_exe = own_path(),
         },
         .cc = {
-            .command = "gcc",
+            .command = "cc",
             .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         },
         .log_level = LOG_INFO,
     };
 
+    return res;
+}
+struct config_t merge_config(struct config_t a, struct config_t b) {
+    struct config_t res = a;
+    if (b.project.name) res.project.name = b.project.name;
+    if (b.project.src_d) res.project.src_d = b.project.src_d;
+    if (b.project.bin_d) res.project.bin_d = b.project.bin_d;
+    if (b.project.test_d) res.project.test_d = b.project.test_d;
+    if (b.project.build_c) res.project.build_c = b.project.build_c;
+    if (b.project.build_exe) res.project.build_exe = b.project.build_exe;
+    if (b.cc.command) res.cc.command = b.cc.command;
+    if (b.cc.flags.items) res.cc.flags = b.cc.flags;
+    if (b.log_level) res.log_level = b.log_level;
     return res;
 }
 
@@ -429,7 +450,7 @@ void init(strlist args);
 
 int main(int argc, char *argv[]) {
     strlist args = { argc - 1, argv + 1 };
-    config = default_config();
+    config = merge_config(default_config(), ___config());
 
 #ifdef INIT
     init(args);
