@@ -17,7 +17,9 @@
 
 #   define PATH_SEP "\\"
 #elif __linux__
-#   define __USE_XOPEN2K
+#   ifndef __USE_XOPEN2K
+#       define __USE_XOPEN2K
+#   endif
 #   include <linux/limits.h>
 #   include <unistd.h>
 
@@ -62,7 +64,7 @@ struct project_config_t {
     char* src_d;
     char* bin_d;
     char* test_d;
-    char* build_c;
+    char* do_c;
     char* build_exe;
 };
 struct cc_config_t {
@@ -81,7 +83,7 @@ struct config_t ___config();
 struct config_t merge_config(struct config_t a, struct config_t b);
 #define CONFIG(...) struct config_t ___config() { \
     struct config_t res = __VA_ARGS__; \
-    res.project.build_c = __FILE__; \
+    res.project.do_c = __FILE__; \
     return res; \
 }
 
@@ -106,14 +108,10 @@ strlist mklist(size_t count, ...);
 strlist listclone(strlist list);
 strlist listappend(strlist list, char* item);
 strlist listconcat(strlist a, strlist b);
+strlist listremove(strlist list, size_t item);
 char* listjoin(char* sep, strlist list);
 strlist joineach(char* sep, char* body, strlist list);
 #define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
-
-#ifdef _WIN32
-#else
-#define PATH_SEP "/"
-#endif
 
 #define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
 
@@ -145,7 +143,7 @@ struct config_t default_config() {
             .src_d = "src",
             .bin_d = "bin",
             .test_d = "test",
-            .build_c = "build.c",
+            .do_c = NULL,
             .build_exe = own_path(),
         },
         .cc = {
@@ -154,10 +152,13 @@ struct config_t default_config() {
         },
         .log_level = LOG_INFO,
         .process = {
+            .init = NULL,
             .build = &___build,
-        }
+            .run = NULL,
+            .test = NULL,
+            .clean = NULL,
+        },
     };
-
     return res;
 }
 struct config_t merge_config(struct config_t a, struct config_t b) {
@@ -166,7 +167,7 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
     if (b.project.src_d) res.project.src_d = b.project.src_d;
     if (b.project.bin_d) res.project.bin_d = b.project.bin_d;
     if (b.project.test_d) res.project.test_d = b.project.test_d;
-    if (b.project.build_c) res.project.build_c = b.project.build_c;
+    if (b.project.do_c) res.project.do_c = b.project.do_c;
     if (b.project.build_exe) res.project.build_exe = b.project.build_exe;
     if (b.cc.command) res.cc.command = b.cc.command;
     if (b.cc.flags.items) res.cc.flags = b.cc.flags;
@@ -231,6 +232,13 @@ strlist listconcat(strlist a, strlist b) {
     memcpy(a.items + a.count, b.items, sizeof(char*) * b.count);
     a.count += b.count;
     return a;
+}
+
+strlist listremove(strlist list, size_t item) {
+    list.items = realloc(list.items, sizeof(char*) * (list.count - 1));
+    memmove(list.items + item, list.items + item + 1, sizeof(char*) * (list.count - item - 1));
+    list.count -= 1;
+    return list;
 }
 
 char* listjoin(char* sep, strlist list) {
@@ -447,6 +455,11 @@ int run(strlist cmd) {
 #define SOURCEFILES FILES(config.project.src_d, ".c")
 #define OUTPUT PATH(config.project.bin_d, config.project.name)
 
+#define COMMAND_BUILD "build"
+#define COMMAND_RUN "run"
+#define COMMAND_TEST "test"
+#define COMMAND_CLEAN "clean"
+
 // build
 int ___build(strlist argv) {
     CC(SOURCEFILES, OUTPUT);
@@ -455,20 +468,67 @@ int ___build(strlist argv) {
 }
 
 int main(int argc, char* argv[]) {
-    strlist args = { argc - 1, argv + 1 };
+    strlist _argv = { argc - 1, argv + 1 };
     config = merge_config(default_config(), ___config());
+    char* command = NULL;
 
-    if (modifiedlater(config.project.build_c, config.project.build_exe)) {
+    if (_argv.count == 0 || _argv.items[0][0] == '-') {
+        command = COMMAND_BUILD;
+    } else {
+        command = _argv.items[0];
+        _argv = listremove(_argv, 0);
+    }
+
+    if (strcmp(command, COMMAND_RUN) == 0)
+        config.log_level = LOG_FATAL;
+
+    for (size_t i = 0; i < _argv.count; i++) {
+        char* arg = _argv.items[i];
+
+        if (strcmp(arg, "-cc") == 0)
+            config.cc.command = _argv.items[++i];
+        else if (strcmp(arg, "-log") == 0) {
+            arg = _argv.items[++i];
+            if (strcmp(arg, "info") == 0)
+                config.log_level = LOG_INFO;
+            else if (strcmp(arg, "warn") == 0)
+                config.log_level = LOG_WARN;
+            else if (strcmp(arg, "error") == 0)
+                config.log_level = LOG_ERROR;
+            else if (strcmp(arg, "fatal") == 0)
+                config.log_level = LOG_FATAL;
+        } else if (strcmp(arg, "-cflags") == 0) {
+            size_t j = ++i;
+            while (_argv.items[j][0] != '-') {
+                config.cc.flags = listappend(config.cc.flags, _argv.items[j]);
+                j++;
+            }
+            i = j - 1;
+        }
+    }
+
+    if (modifiedlater(config.project.do_c, config.project.build_exe)) {
         INFO("Rebuilding...");
-        RUN(config.cc.command, "-o", config.project.build_exe, config.project.build_c);
-        RUNL(args, config.project.build_exe);
+        RUN(config.cc.command, "-o", config.project.build_exe, config.project.do_c);
+        RUNL(_argv, config.project.build_exe);
         return 0;
     }
 
-    if (config.process.build)
-        return config.process.build(args);
+    int res = 0;
+    if (strcmp(command, COMMAND_BUILD) == 0 && config.process.build)
+        res = config.process.build(_argv);
+    else if (strcmp(command, COMMAND_RUN) == 0 && config.process.run)
+        res = config.process.run(_argv);
+    else if (strcmp(command, COMMAND_TEST) == 0 && config.process.test)
+        res = config.process.test(_argv);
+    else if (strcmp(command, COMMAND_CLEAN) == 0 && config.process.clean)
+        res = config.process.clean(_argv);
+    else
+        FATAL("Unknown command: %s", command);
 
-    return 1;
+    FATAL("%s failed with exit code %d", command, res);
+
+    return 0;
 }
 
 #endif // _CUILT_NO_IMPLEMENTATION
