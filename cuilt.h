@@ -48,6 +48,15 @@ enum LOG_LEVEL {
     LOG_FATAL = 3,
 };
 
+typedef int (*process_t)(strlist argv);
+
+struct process_config_t {
+    process_t init;
+    process_t build;
+    process_t run;
+    process_t test;
+    process_t clean;
+};
 struct project_config_t {
     char *name;
     char *src_d;
@@ -63,6 +72,7 @@ struct cc_config_t {
 struct config_t {
     struct project_config_t project;
     struct cc_config_t cc;
+    struct process_config_t process;
     enum LOG_LEVEL log_level;
 };
 extern struct config_t config;
@@ -126,6 +136,7 @@ int run(strlist cmd);
 #ifndef _CUILT_NO_IMPLEMENTATION
 
 // config
+int ___build(strlist argv);
 struct config_t config;
 struct config_t default_config() {
     struct config_t res = {
@@ -142,6 +153,9 @@ struct config_t default_config() {
             .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         },
         .log_level = LOG_INFO,
+        .process = {
+            .build = &___build,
+        }
     };
 
     return res;
@@ -434,27 +448,15 @@ int run(strlist cmd) {
 #define OUTPUT PATH(config.project.bin_d, config.project.name)
 
 // build
-#ifndef NO_BUILD
-int build(strlist args) {
+int ___build(strlist argv) {
     CC(SOURCEFILES, OUTPUT);
 
     return 0;
 }
-#else
-int build(strlist args);
-#endif
-
-#ifdef INIT
-void init(strlist args);
-#endif
 
 int main(int argc, char *argv[]) {
     strlist args = { argc - 1, argv + 1 };
     config = merge_config(default_config(), ___config());
-
-#ifdef INIT
-    init(args);
-#endif
 
     if (modifiedlater(config.project.build_c, config.project.build_exe)) {
         INFO("Rebuilding...");
@@ -463,7 +465,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    return build(args);
+    if (config.process.build)
+        return config.process.build(args);
+
+    return 1;
 }
 
 #endif // _CUILT_NO_IMPLEMENTATION
