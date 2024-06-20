@@ -42,7 +42,7 @@ CONFIG({
     },
     .cc = {
         .command = "cc",         // compiler command
-        .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"), // compiler flags
+        .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"), // compiler flags
     },
     .process = {                 // can be set to customize the processes
         .init = NULL,            // init function that will be called before any command
@@ -50,6 +50,7 @@ CONFIG({
         .run = &___run,          // run function
         .test = NULL,            // test function
         .clean = NULL,           // clean function
+        .passthrough = { 0, NULL }, // passthrough arguments. Set after a double dash
     },
     .log_level = LOG_INFO,       // log level
 })
