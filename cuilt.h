@@ -41,14 +41,12 @@ license.
 #ifndef _CUILT_H
 #define _CUILT_H
 
-#include <dirent.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
 #include <time.h>
 
@@ -59,17 +57,22 @@ license.
 #   define access _access
 #   define F_OK 0
 #   define PATH_SEP "\\"
+#   define PATH_MAX MAX_PATH
 #elif __linux__
 #   ifndef __USE_XOPEN2K
 #       define __USE_XOPEN2K
 #   endif
+#   include <dirent.h>
 #   include <linux/limits.h>
 #   include <unistd.h>
+#   include <sys/wait.h>
 
 #   define PATH_SEP "/"
 #elif __APPLE__
+#   include <dirent.h>
 #   include <libproc.h>
 #   include <unistd.h>
+#   include <sys/wait.h>
 
 #   define PATH_SEP "/"
 #endif
@@ -328,20 +331,30 @@ strlist split(const char* sep, const char* body) {
     return res;
 }
 
-// path
 strlist filesin(const char* dir) {
     strlist res = { 0, NULL };
-    DIR* d = opendir(dir);
-    if (d == NULL)
-        return res;
-    struct dirent* de;
-    while ((de = readdir(d)) != NULL) {
-        char* name = de->d_name;
-        if (name[0] == '.')
-            continue;
-        res = append(res, PATH(dir, name));
+#ifdef _WIN32
+    WIN32_FIND_DATA data;
+    HANDLE h = FindFirstFile(PATH(dir, "*"), &data);
+    if (h != INVALID_HANDLE_VALUE) {
+        do {
+            if (strcmp(data.cFileName, ".") != 0 && strcmp(data.cFileName, "..") != 0)
+                res = append(res, PATH(dir, data.cFileName));
+        } while (FindNextFile(h, &data));
+        FindClose(h);
     }
-    closedir(d);
+#else
+    DIR* d = opendir(dir);
+    if (d != NULL) {
+        struct dirent* de;
+        while ((de = readdir(d)) != NULL) {
+            char* name = de->d_name;
+            if (name[0] != '.')
+                res = append(res, PATH(dir, name));
+        }
+        closedir(d);
+    }
+#endif
     return res;
 }
 
@@ -380,24 +393,40 @@ const char* noext(const char* path) {
 
 char* cwd(void) {
     char* res = (char*)malloc(PATH_MAX);
+#ifdef _WIN32
+    GetCurrentDirectoryA(PATH_MAX, res);
+#elif __linux__
     getcwd(res, PATH_MAX);
+#elif __APPLE__
+    char tmp[PATH_MAX];
+    getcwd(tmp, PATH_MAX);
+    realpath(tmp, res);
+#endif
     return res;
 }
 
 bool modifiedlater(const char* p1, const char* p2)
 {
 #ifdef _WIN32
-    FILETIME p1_time, p2_time;
-
-    Fd p1_fd = fd_open_for_read(p1);
-    if (!GetFileTime(p1_fd, NULL, NULL, &p1_time))
+    HANDLE p1_handle = CreateFile(p1, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (p1_handle == INVALID_HANDLE_VALUE)
         ERROR("could not get time of %s", p1);
-    fd_close(p1_fd);
 
-    Fd p2_fd = fd_open_for_read(p2);
-    if (!GetFileTime(p2_fd, NULL, NULL, &p2_time))
+    FILETIME p1_time;
+    if (!GetFileTime(p1_handle, NULL, NULL, &p1_time))
+        ERROR("could not get time of %s", p1);
+
+    CloseHandle(p1_handle);
+
+    HANDLE p2_handle = CreateFile(p2, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (p2_handle == INVALID_HANDLE_VALUE)
         ERROR("could not get time of %s", p2);
-    fd_close(p2_fd);
+
+    FILETIME p2_time;
+    if (!GetFileTime(p2_handle, NULL, NULL, &p2_time))
+        ERROR("could not get time of %s", p2);
+
+    CloseHandle(p2_handle);
 
     return CompareFileTime(&p1_time, &p2_time) == 1;
 #else
