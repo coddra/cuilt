@@ -547,12 +547,10 @@ int main(int argc, const char* argv[]) {
     if (config.process.init)
         config.process.init(_argv);
 
-    if (_argv.count == 0 || _argv.items[0][0] == '-') {
+    if (_argv.count == 0 || _argv.items[0][0] == '-')
         command = COMMAND_BUILD;
-    } else {
+    else
         command = _argv.items[0];
-        _argv = remove_item(_argv, 0);
-    }
 
     if (strcmp(command, COMMAND_RUN) == 0)
         config.log_level = LOG_FATAL;
@@ -584,9 +582,9 @@ int main(int argc, const char* argv[]) {
 
     if (modifiedlater(config.project.do_c, config.project.do_exe)) {
         INFO("rebuilding...");
+        config.log_level = LOG_FATAL;
         RUN(config.cc.command, "-o", config.project.do_exe, config.project.do_c);
-        RUNL(_argv, config.project.do_exe);
-        return 0;
+        return RUNL(_argv, config.project.do_exe);
     }
 
     int res = 0;
