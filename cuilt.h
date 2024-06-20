@@ -50,6 +50,7 @@ license.
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #ifdef _WIN32
 #   include <windows.h>
@@ -100,6 +101,7 @@ struct process_config_t {
     process_t run;
     process_t test;
     process_t clean;
+    strlist passthrough;
 };
 struct project_config_t {
     const char* name;
@@ -200,6 +202,7 @@ struct config_t default_config(void) {
             .run = &___run,
             .test = NULL,
             .clean = NULL,
+            .passthrough = { 0, NULL },
         },
         .log_level = LOG_INFO,
     };
@@ -531,7 +534,7 @@ int ___run(strlist argv) {
             FATAL("cannot build executable");
     }
 
-    return RUN(OUTPUT);
+    return RUNL(config.process.passthrough, OUTPUT);
 }
 
 int ___build(strlist argv) {
@@ -577,6 +580,13 @@ int main(int argc, const char* argv[]) {
                 j++;
             }
             i = j - 1;
+        } else if (strcmp(arg, "--") == 0) {
+            strlist pst = {
+                _argv.count - i - 1,
+                _argv.items + i + 1,
+            };
+            config.process.passthrough = pst;
+            break;
         }
     }
 
