@@ -42,7 +42,6 @@ license.
 #define _CUILT_H
 
 #include <dirent.h>
-#include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -104,11 +103,11 @@ struct process_config_t {
 };
 struct project_config_t {
     const char* name;
-    const char* src_d;
-    const char* bin_d;
-    const char* test_d;
+    const char* src;
+    const char* bin;
+    const char* test;
     const char* do_c;
-    const char* build_exe;
+    const char* do_exe;
 };
 struct cc_config_t {
     const char* command;
@@ -148,15 +147,15 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
     } while (0)
 
 strlist mklist(size_t count, ...);
-strlist listclone(strlist list);
-strlist listappend(strlist list, const char* item);
-strlist listconcat(strlist a, strlist b);
-strlist listremove(strlist list, size_t item);
-char* listjoin(const char* sep, strlist list);
+strlist clone(strlist list);
+strlist append(strlist list, const char* item);
+strlist concat(strlist a, strlist b);
+strlist remove_item(strlist list, size_t item);
+char* join(const char* sep, strlist list);
 strlist joineach(const char* sep, const char* body, strlist list);
-#define MKLIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
+#define LIST(...) mklist(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)
 
-#define PATH(...) listjoin(PATH_SEP, MKLIST(__VA_ARGS__))
+#define PATH(...) join(PATH_SEP, LIST(__VA_ARGS__))
 
 strlist filesin(const char* dir);
 bool endswith(const char* a, const char* b);
@@ -185,15 +184,15 @@ struct config_t default_config(void) {
     struct config_t res = {
         .project = {
             .name = basename(cwd()),
-            .src_d = "src",
-            .bin_d = "bin",
-            .test_d = "test",
+            .src = "src",
+            .bin = "bin",
+            .test = "test",
             .do_c = NULL,
-            .build_exe = own_path(),
+            .do_exe = own_path(),
         },
         .cc = {
             .command = "cc",
-            .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
+            .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         },
         .process = {
             .init = NULL,
@@ -209,11 +208,11 @@ struct config_t default_config(void) {
 struct config_t merge_config(struct config_t a, struct config_t b) {
     struct config_t res = a;
     if (b.project.name) res.project.name = b.project.name;
-    if (b.project.src_d) res.project.src_d = b.project.src_d;
-    if (b.project.bin_d) res.project.bin_d = b.project.bin_d;
-    if (b.project.test_d) res.project.test_d = b.project.test_d;
+    if (b.project.src) res.project.src = b.project.src;
+    if (b.project.bin) res.project.bin = b.project.bin;
+    if (b.project.test) res.project.test = b.project.test;
     if (b.project.do_c) res.project.do_c = b.project.do_c;
-    if (b.project.build_exe) res.project.build_exe = b.project.build_exe;
+    if (b.project.do_exe) res.project.do_exe = b.project.do_exe;
     if (b.cc.command) res.cc.command = b.cc.command;
     if (b.cc.flags.items) res.cc.flags = b.cc.flags;
     if (b.log_level) res.log_level = b.log_level;
@@ -258,35 +257,35 @@ strlist mklist(size_t count, ...) {
     return res;
 }
 
-strlist listclone(strlist list) {
+strlist clone(strlist list) {
     strlist res = { 0, (const char**)malloc(sizeof(char*) * list.count) };
     memcpy(res.items, list.items, sizeof(char*) * list.count);
     res.count = list.count;
     return res;
 }
 
-strlist listappend(strlist list, const char* item) {
+strlist append(strlist list, const char* item) {
     list.items = (const char**)realloc(list.items, sizeof(char*) * (list.count + 1));
     list.items[list.count] = item;
     list.count += 1;
     return list;
 }
 
-strlist listconcat(strlist a, strlist b) {
+strlist concat(strlist a, strlist b) {
     a.items = (const char**)realloc(a.items, sizeof(char*) * (a.count + b.count));
     memcpy(a.items + a.count, b.items, sizeof(char*) * b.count);
     a.count += b.count;
     return a;
 }
 
-strlist listremove(strlist list, size_t item) {
+strlist remove_item(strlist list, size_t item) {
     list.items = (const char**)realloc(list.items, sizeof(char*) * (list.count - 1));
     memmove(list.items + item, list.items + item + 1, sizeof(char*) * (list.count - item - 1));
     list.count -= 1;
     return list;
 }
 
-char* listjoin(const char* sep, strlist list) {
+char* join(const char* sep, strlist list) {
     size_t sep_len = strlen(sep);
     size_t len = 0;
     char* res = NULL;
@@ -309,7 +308,7 @@ strlist joineach(const char* sep, const char* body, strlist list) {
     for (size_t i = 0; i < list.count; i++) {
         char* item = (char*)malloc(1 * sizeof(char));
         *item = '\0';
-        res = listappend(res, strcat(strcat(strcat(item, body), sep), list.items[i]));
+        res = append(res, strcat(strcat(strcat(item, body), sep), list.items[i]));
     }
     return res;
 }
@@ -320,7 +319,7 @@ strlist split(const char* sep, const char* body) {
     memcpy(tmp, body, strlen(body) + 1);
     char* p = strtok(tmp, sep);
     while (p) {
-        res = listappend(res, p);
+        res = append(res, p);
         p = strtok(NULL, sep);
     }
     return res;
@@ -337,7 +336,7 @@ strlist filesin(const char* dir) {
         char* name = de->d_name;
         if (name[0] == '.')
             continue;
-        res = listappend(res, PATH(dir, name));
+        res = append(res, PATH(dir, name));
     }
     closedir(d);
     return res;
@@ -355,13 +354,13 @@ strlist filtered(strlist list, const char* ext) {
     strlist res = { 0, NULL };
     for (size_t i = 0; i < list.count; i++) {
         if (endswith(list.items[i], ext))
-            res = listappend(res, list.items[i]);
+            res = append(res, list.items[i]);
     }
     return res;
 }
 
 const char* basename(const char* path) {
-    char* res = strrchr(path, '/');
+    const char* res = strrchr(path, '/');
     if (res == NULL)
         return path;
     return res + 1;
@@ -447,8 +446,8 @@ int run(strlist cmd) {
     if (cmd.count == 0)
         return 0;
 
-    char* strcmd = listjoin(" ", cmd);
-    cmd = listappend(listclone(cmd), NULL);
+    char* strcmd = join(" ", cmd);
+    cmd = append(clone(cmd), NULL);
 
 #ifdef _WIN32
     STARTUPINFOA si;
@@ -512,12 +511,12 @@ int run(strlist cmd) {
     return 0;
 }
 
-#define RUN(...) run(MKLIST(__VA_ARGS__))
-#define RUNL(files, ...) run(listconcat(MKLIST(__VA_ARGS__), files))
+#define RUN(...) run(LIST(__VA_ARGS__))
+#define RUNL(files, ...) run(concat(LIST(__VA_ARGS__), files))
 
-#define CC(files, out) RUNL(listconcat(config.cc.flags, files), config.cc.command, "-o", out)
-#define SOURCEFILES FILES(config.project.src_d, ".c")
-#define OUTPUT PATH(config.project.bin_d, config.project.name)
+#define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
+#define SOURCEFILES FILES(config.project.src, ".c")
+#define OUTPUT PATH(config.project.bin, config.project.name)
 
 #define COMMAND_BUILD "build"
 #define COMMAND_RUN "run"
@@ -552,7 +551,7 @@ int main(int argc, const char* argv[]) {
         command = COMMAND_BUILD;
     } else {
         command = _argv.items[0];
-        _argv = listremove(_argv, 0);
+        _argv = remove_item(_argv, 0);
     }
 
     if (strcmp(command, COMMAND_RUN) == 0)
@@ -576,17 +575,17 @@ int main(int argc, const char* argv[]) {
         } else if (strcmp(arg, "-cflags") == 0) {
             size_t j = ++i;
             while (_argv.items[j][0] != '-') {
-                config.cc.flags = listappend(config.cc.flags, _argv.items[j]);
+                config.cc.flags = append(config.cc.flags, _argv.items[j]);
                 j++;
             }
             i = j - 1;
         }
     }
 
-    if (modifiedlater(config.project.do_c, config.project.build_exe)) {
+    if (modifiedlater(config.project.do_c, config.project.do_exe)) {
         INFO("rebuilding...");
-        RUN(config.cc.command, "-o", config.project.build_exe, config.project.do_c);
-        RUNL(_argv, config.project.build_exe);
+        RUN(config.cc.command, "-o", config.project.do_exe, config.project.do_c);
+        RUNL(_argv, config.project.do_exe);
         return 0;
     }
 

@@ -1,6 +1,6 @@
 # Cuilt
 
-Cuilt is not at all a build system for C.
+Cuilt is not at all a build system for C. Still under development. Partially tested on linux, not tested on windows nor macos.
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
@@ -33,25 +33,25 @@ Currently available config options are (with the default values):
 
 CONFIG({
     .project = {
-        .name = basename(cwd()),    // name of the project and the output executable
-        .src_d = "src",             // source directory
-        .bin_d = "bin",             // build directory
-        .test_d = "test",           // test directory
-        .do_c = NULL,               // name of the custom c file. Will be filled by the CONFIG macro
-        .build_exe = own_path(),    // path to the 'do' executable
+        .name = basename(cwd()), // name of the project and the output executable
+        .src = "src",            // source directory
+        .bin = "bin",            // build directory
+        .test = "test",          // test directory
+        .do_c = NULL,            // name of the custom c file. Will be set by the CONFIG macro
+        .do_exe = own_path(),    // path to the 'do' executable
     },
     .cc = {
-        .command = "cc",            // compiler command
+        .command = "cc",         // compiler command
         .flags = MKLIST("-Wall", "-Wextra", "-Werror", "-std=c11"), // compiler flags
     },
-    .process = {                    // can be set to customize the processes
-        .init = NULL,               // init function that will be called before any command
-        .build = &___build,         // build function
-        .run = &___run,             // run function
-        .test = NULL,               // test function
-        .clean = NULL,              // clean function
+    .process = {                 // can be set to customize the processes
+        .init = NULL,            // init function that will be called before any command
+        .build = &___build,      // build function
+        .run = &___run,          // run function
+        .test = NULL,            // test function
+        .clean = NULL,           // clean function
     },
-    .log_level = LOG_INFO,          // log level
+    .log_level = LOG_INFO,       // log level
 })
 
 // in cuilt.h
