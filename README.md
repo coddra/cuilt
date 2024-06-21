@@ -1,12 +1,12 @@
 # Cuilt
 
-Cuilt is not at all a build system for C. Still under development. Partially tested on linux, not tested on windows nor macos.
+Cuilt is not at all a build system for C. Still under development. Partially tested on linux and windows, not tested on macos.
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
 ## Usage
 
-Place cuilt.h in your project's root directory alongside with a custom c file, for example `do.c`.
+Place `cuilt.h` in your project's root directory alongside with a custom c file, for example `do.c`.
 The most basic `do.c` would be:
 
 ```c
@@ -23,8 +23,25 @@ cc do.c -o do
 
 You don't have to build the `do` tool ever again, if you change the configuration, it will automatically rebuild itself.
 
-Note, that `cuilt.h` contains the main function and other impementations too. To use `cuilt.h` as a regular
-header file, define `_CUILT_NO_IMPLEMENTATION` before including it.
+Note, that `cuilt.h` contains the main function and other impementations too. Define `_CUILT_NO_MAIN` or `_CUILT_NO_IMPLEMENTATION` to disable them.
+
+## Synopsis
+
+```sh
+./do [COMMAND] [ARGS...] [-- <PASS-THROUGH-ARGS...>]
+```
+
+Commands:
+- `build` - build the project
+- `run` - run the executable with the PASS-THROUGH-ARGS
+- `test` - call the test function - you have to specify config.process.test first (see below)
+- `clean` - clean - you have to specify config.process.clean first (see below)
+
+Args:
+- `-cc <CC>` - override config.cc.command with `CC`
+- `-cflags <CFLAGS>` - override config.cc.flags with `split(" ", CFLAGS)`
+
+## Configuration
 
 Currently available config options are (with the default values):
 
@@ -37,8 +54,6 @@ CONFIG({
         .src = "src",            // source directory
         .bin = "bin",            // build directory
         .test = "test",          // test directory
-        .do_c = NULL,            // name of the custom c file. Will be set by the CONFIG macro
-        .do_exe = own_path(),    // path to the 'do' executable
     },
     .cc = {
         .command = "cc",         // compiler command
@@ -50,26 +65,24 @@ CONFIG({
         .run = &___run,          // run function
         .test = NULL,            // test function
         .clean = NULL,           // clean function
-        .passthrough = { 0, NULL }, // passthrough arguments. Set after a double dash
     },
     .log_level = LOG_INFO,       // log level
 })
 
 // in cuilt.h
+int ___run(strlist argv) {
+    if (!exists(OUTPUT) || is_outdated(OUTPUT)) {
+        if (config.process.build(argv) != 0)
+            FATAL("cannot build executable");
+    }
+
+    return RUNL(config.process.passthrough, OUTPUT);
+}
+
 int ___build(strlist argv) {
     // build the executable using the set compiler and flags, 
     // from c files in the src directory and into the bin directory
     // with the set name
     return CC(SOURCEFILES, OUTPUT);
-}
-
-int ___run(strlist argv) {
-    if (!exists(OUTPUT)) {
-        int res = config.process.build(argv);
-        if (res != 0)
-            FATAL("cannot build executable");
-    }
-
-    return RUN(OUTPUT);
 }
 ```
