@@ -152,6 +152,9 @@ struct config_t merge_config(struct config_t a, struct config_t b);
 void msg(enum LOG_LEVEL level, const char* fmt, ...);
 #define INFO(...) msg(LOG_INFO, __VA_ARGS__)
 #define WARN(...) msg(LOG_WARN, __VA_ARGS__)
+#ifdef ERROR
+#undef ERROR
+#endif
 #define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
 #define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
 
