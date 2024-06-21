@@ -567,8 +567,14 @@ int run(strlist cmd) {
 #define RUNL(files, ...) run(concat(LIST(__VA_ARGS__), files))
 
 #define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
+
+#ifndef SOURCEFILES
 #define SOURCEFILES FILES(config.project.src, ".c")
+#endif
+
+#ifndef OUTPUT
 #define OUTPUT PATH(config.project.bin, config.project.name)
+#endif
 
 #define COMMAND_BUILD "build"
 #define COMMAND_RUN "run"
