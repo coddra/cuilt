@@ -164,7 +164,7 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
     do { \
         strlist ___list = list; \
         for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
-            char* item = ___list.items[___i]; \
+            const char* item = ___list.items[___i]; \
             do \
                 body \
             while (0); \
@@ -194,6 +194,20 @@ bool modifiedlater(const char* p1, const char* p2);
 #define FILES(dir, ext) filtered(filesin(dir), ext)
 
 int run(strlist cmd);
+
+#define RUN(...) run(LIST(__VA_ARGS__))
+#define RUNL(files, ...) run(concat(LIST(__VA_ARGS__), files))
+
+#define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
+
+#ifndef SOURCEFILES
+#define SOURCEFILES FILES(config.project.src, ".c")
+#endif
+
+#ifndef OUTPUT
+#define OUTPUT PATH(config.project.bin, config.project.name)
+#endif
+
 
 #endif // _CUILT_H
 
@@ -493,6 +507,14 @@ char* own_path(void) {
     return result;
 }
 
+bool is_outdated(char* path) {
+    FOREACH(file, SOURCEFILES, {
+        if (modifiedlater(file, path))
+            return true;
+    });
+    return false;
+}
+
 // run
 int run(strlist cmd) {
     if (cmd.count == 0)
@@ -563,19 +585,6 @@ int run(strlist cmd) {
     return 0;
 }
 
-#define RUN(...) run(LIST(__VA_ARGS__))
-#define RUNL(files, ...) run(concat(LIST(__VA_ARGS__), files))
-
-#define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
-
-#ifndef SOURCEFILES
-#define SOURCEFILES FILES(config.project.src, ".c")
-#endif
-
-#ifndef OUTPUT
-#define OUTPUT PATH(config.project.bin, config.project.name)
-#endif
-
 #define COMMAND_BUILD "build"
 #define COMMAND_RUN "run"
 #define COMMAND_TEST "test"
@@ -583,9 +592,8 @@ int run(strlist cmd) {
 
 // commands
 int ___run(strlist argv) {
-    if (!exists(OUTPUT)) {
-        int res = config.process.build(argv);
-        if (res != 0)
+    if (!exists(OUTPUT) || is_outdated(OUTPUT)) {
+        if (config.process.build(argv) != 0)
             FATAL("cannot build executable");
     }
 
