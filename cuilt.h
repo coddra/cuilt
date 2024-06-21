@@ -79,11 +79,13 @@ license.
 
 #define HEAD(a, ...) a
 #define TAIL(a, ...) __VA_ARGS__
+#define FIRST(...) HEAD(__VA_ARGS__)
+#define SECOND(...) FIRST(TAIL(__VA_ARGS__))
 #define ___CAT(a, b) a##b
 #define CAT(a, b) ___CAT(a, b)
 #define ___NOT0() 1, 1
 #define ___NOT() 1, 1
-#define NOT(a) HEAD(TAIL(CAT(___NOT, a)(), 0))
+#define NOT(a) SECOND(CAT(___NOT, a)(), 0)
 #define BOOL(a) NOT(NOT(a))
 #define ___IF_ELSE0(...) ___ELSE0
 #define ___IF_ELSE1(...) __VA_ARGS__ ___ELSE1
@@ -312,7 +314,7 @@ strlist remove_item(strlist list, size_t item) {
 char* join(const char* sep, strlist list) {
     size_t sep_len = strlen(sep);
     size_t len = 0;
-    char* res = NULL;
+    char* res = malloc(1 * sizeof(char));
     for (size_t i = 0; i < list.count; i++) {
         size_t item_len = strlen(list.items[i]);
         res = (char*)realloc(res, len + item_len + sep_len + 1);
@@ -608,9 +610,9 @@ int main(int argc, const char* argv[]) {
     for (size_t i = 0; i < _argv.count; i++) {
         const char* arg = _argv.items[i];
 
-        if (strcmp(arg, "-cc") == 0)
+        if (strcmp(arg, "-cc") == 0) {
             config.cc.command = _argv.items[++i];
-        else if (strcmp(arg, "-log") == 0) {
+        } else if (strcmp(arg, "-log") == 0) {
             arg = _argv.items[++i];
             if (strcmp(arg, "info") == 0)
                 config.log_level = LOG_INFO;
@@ -621,12 +623,7 @@ int main(int argc, const char* argv[]) {
             else if (strcmp(arg, "fatal") == 0)
                 config.log_level = LOG_FATAL;
         } else if (strcmp(arg, "-cflags") == 0) {
-            size_t j = ++i;
-            while (_argv.items[j][0] != '-') {
-                config.cc.flags = append(config.cc.flags, _argv.items[j]);
-                j++;
-            }
-            i = j - 1;
+            config.cc.flags = split(" ", _argv.items[++i]);
         } else if (strcmp(arg, "--") == 0) {
             strlist pst = {
                 _argv.count - i - 1,
