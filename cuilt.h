@@ -255,6 +255,12 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
     if (b.project.do_exe) res.project.do_exe = b.project.do_exe;
     if (b.cc.command) res.cc.command = b.cc.command;
     if (b.cc.flags.items) res.cc.flags = b.cc.flags;
+    if (b.process.init) res.process.init = b.process.init;
+    if (b.process.build) res.process.build = b.process.build;
+    if (b.process.run) res.process.run = b.process.run;
+    if (b.process.test) res.process.test = b.process.test;
+    if (b.process.clean) res.process.clean = b.process.clean;
+    if (b.process.passthrough.items) res.process.passthrough = b.process.passthrough;
     if (b.log_level) res.log_level = b.log_level;
     return res;
 }
