@@ -651,7 +651,8 @@ int main(int argc, const char* argv[]) {
     if (modifiedlater(config.project.do_c, config.project.do_exe)) {
         INFO("rebuilding...");
         config.log_level = LOG_FATAL;
-        RUN(config.cc.command, "-o", config.project.do_exe, config.project.do_c);
+        if (RUN(config.cc.command, "-o", config.project.do_exe, config.project.do_c) != 0)
+            FATAL("failed to rebuild");
         return RUNL(_argv, config.project.do_exe);
     }
 
