@@ -1,8 +1,10 @@
 # Cuilt
 
-Cuilt is not at all a build system for C. Still under development. Partially tested on linux and windows, not tested on macos.
+Cuilt is not at all a build system for C.
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
+
+**Disclaimer:** *Still under development. Partially tested on linux and windows, not tested on macos.*
 
 ## Usage
 
@@ -33,13 +35,13 @@ Note, that `cuilt.h` contains the main function and other impementations too. De
 
 Commands:
 - `build` - build the project
-- `run` - run the executable with the PASS-THROUGH-ARGS
-- `test` - call the test function - you have to specify config.process.test first (see below)
-- `clean` - clean - you have to specify config.process.clean first (see below)
+- `run` - run the executable with the `PASS-THROUGH-ARGS`
+- `test` - call the test function - you have to specify `config.process.test` first (see below)
+- `clean` - clean - you have to specify `config.process.clean` first (see below)
 
 Args:
-- `-cc <CC>` - override config.cc.command with `CC`
-- `-cflags <CFLAGS>` - override config.cc.flags with `split(" ", CFLAGS)`
+- `-cc <CC>` - override `config.cc.command` with `CC`
+- `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
 
 ## Configuration
 
