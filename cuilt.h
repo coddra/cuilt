@@ -162,16 +162,17 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
 #define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
 #define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
 
-#define FOREACH(item, list, body) \
+#define ___FOREACH(item, list, body, counter) \
     do { \
-        strlist ___list = list; \
-        for (size_t ___i = 0; ___i < ___list.count; ___i++) { \
-            const char* item = ___list.items[___i]; \
+        strlist CAT(___list, counter) = list; \
+        for (size_t CAT(___i, counter) = 0; CAT(___i, counter) < CAT(___list, counter).count; CAT(___i, counter)++) { \
+            const char* item = CAT(___list, counter).items[CAT(___i, counter)]; \
             do \
                 body \
             while (0); \
         } \
     } while (0)
+#define FOREACH(item, list, body) ___FOREACH(item, list, body, __COUNTER__)
 
 strlist mklist(size_t count, ...);
 strlist clone(strlist list);
