@@ -182,16 +182,16 @@ strlist joineach(const char* sep, const char* body, strlist list);
 
 #define PATH(...) join(PATH_SEP, LIST(__VA_ARGS__))
 
-strlist filesin(const char* dir);
+strlist files_in(const char* dir);
 bool endswith(const char* a, const char* b);
 strlist filtered(strlist list, const char* ext);
 bool exists(const char* path);
 char* own_path(void);
 char* cwd(void);
 const char* basename(const char* path);
-const char* noext(const char* path);
-bool modifiedlater(const char* p1, const char* p2);
-#define FILES(dir, ext) filtered(filesin(dir), ext)
+const char* no_extension(const char* path);
+bool modified_later(const char* p1, const char* p2);
+#define FILES(dir, ext) filtered(files_in(dir), ext)
 
 int run(strlist cmd);
 
@@ -371,7 +371,7 @@ strlist split(const char* sep, const char* body) {
     return res;
 }
 
-strlist filesin(const char* dir) {
+strlist files_in(const char* dir) {
     strlist res = { 0, NULL };
 #ifdef _WIN32
     WIN32_FIND_DATA data;
@@ -422,7 +422,7 @@ const char* basename(const char* path) {
     return res + 1;
 }
 
-const char* noext(const char* path) {
+const char* no_extension(const char* path) {
     const char* tmp = strrchr(path, '.');
     if (tmp == NULL)
         return path;
@@ -445,7 +445,7 @@ char* cwd(void) {
     return res;
 }
 
-bool modifiedlater(const char* p1, const char* p2)
+bool modified_later(const char* p1, const char* p2)
 {
 #ifdef _WIN32
     HANDLE p1_handle = CreateFile(p1, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
@@ -515,7 +515,7 @@ char* own_path(void) {
 
 bool is_outdated(char* path) {
     FOREACH(file, SOURCEFILES, {
-        if (modifiedlater(file, path))
+        if (modified_later(file, path))
             return true;
     });
     return false;
@@ -654,7 +654,7 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    if (modifiedlater(config.project.do_c, config.project.do_exe)) {
+    if (modified_later(config.project.do_c, config.project.do_exe)) {
         INFO("rebuilding...");
         config.log_level = LOG_FATAL;
         if (RUN(config.cc.command, "-o", config.project.do_exe, config.project.do_c) != 0)
