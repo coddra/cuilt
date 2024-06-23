@@ -2,21 +2,21 @@
 /*
 Indie Developer License (IDL) 1.0
 
-Copyright (c) 2024 Nádas András <andrew.reeds.mpg@gmail.com>
+Copyright (c) 2024 András Nádas <andrew.reeds.mpg@gmail.com>
 
-Permission is hereby granted, free of charge, to any individual developer or 
-any group of up to 12 developers (collectively, "Developers") obtaining a copy 
-of this software and associated documentation files (the "Software"), to use, 
-copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-Software, subject to the following conditions:
+Permission is hereby granted, free of charge, to any individual or any group of
+up to 12 individuals (collectively, "Users") obtaining a copy of this software
+and associated documentation files (the "Software"), to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software,
+subject to the following conditions:
 
-Developers must provide proper credit, including the original author's name, a 
-link to the original source, and an indication of any changes made to the 
-Software. This credit must be included in the software's documentation, in the 
-"About" section, or any other prominent location in the distribution.
+Users must provide proper credit, including the copyright holder's name, a link
+to the original source, and an indication of any changes made to the Software.
+This credit must be included in the software's documentation, in the "About" 
+section, or any other prominent location in the distribution.
 
-Credit must not suggest the author endorses the Developer or their use of the 
-Software.
+Credit must not suggest the coptright holder endorses the Users or their use of
+the Software.
 
 Any company, organization, or group of more than 12 individuals (collectively, 
 "Entities") are strictly prohibited from using the Software for commercial 
@@ -26,6 +26,9 @@ holder.
 Entities desiring to use the Software for commercial purposes must contact the 
 copyright holder to negotiate terms and obtain a commercial license.
 
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
@@ -34,8 +37,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 SOFTWARE.
 
-By using the Software, Developers and Entities agree to the terms of this 
-license.
+By using the Software, Users and Entities agree to the terms of this license.
 */
 
 #ifndef _CUILT_H
