@@ -484,8 +484,10 @@ char* no_extension(const char* path) {
         memcpy(res, path, len + 1);
         return res;
     }
-    res = (char*)malloc(tmp - path + 1);
-    memcpy(res, path, tmp - path);
+    size_t len = tmp - path;
+    res = (char*)malloc(len + 1);
+    memcpy(res, path, len);
+    res[len] = '\0';
     return res;
 }
 
