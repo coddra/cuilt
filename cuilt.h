@@ -198,6 +198,7 @@ bool starts_with(const char* a, const char* b);
 bool ends_with(const char* a, const char* b);
 strlist filtered(strlist list, const char* ext);
 bool exists(const char* path);
+char* read_file(const char* path);
 char* own_path(void);
 char* cwd(void);
 const char* basename(const char* path);
@@ -507,6 +508,26 @@ bool modified_later(const char* p1, const char* p2)
 
 bool exists(const char* path) {
     return access(path, F_OK) == 0;
+}
+
+char* read_file(const char* path) {
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        ERROR("failed to open file %s", path);
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long length = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char* content = (char*)malloc(length + 1);
+
+    fread(content, 1, length, file);
+    content[length] = '\0';
+
+    fclose(file);
+    return content;
 }
 
 char* own_path(void) {
