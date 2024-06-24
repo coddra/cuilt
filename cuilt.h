@@ -211,7 +211,7 @@ char* own_path(void);
 bool is_outdated(const char *path);
 char* cwd(void);
 const char* basename(const char* path);
-const char* no_extension(const char* path);
+char* no_extension(const char* path);
 bool modified_later(const char* p1, const char* p2);
 static inline strlist ___FILES(strlist files, const char* ext) {
     strlist res = filtered(files, ext);
@@ -475,11 +475,16 @@ const char* basename(const char* path) {
     return res + 1;
 }
 
-const char* no_extension(const char* path) {
+char* no_extension(const char* path) {
     const char* tmp = strrchr(path, '.');
-    if (tmp == NULL)
-        return path;
-    char* res = (char*)malloc(tmp - path + 1);
+    char* res = NULL;
+    if (tmp == NULL) {
+        size_t len = strlen(path);
+        res = (char*)malloc(len + 1);
+        memcpy(res, path, len + 1);
+        return res;
+    }
+    res = (char*)malloc(tmp - path + 1);
     memcpy(res, path, tmp - path);
     return res;
 }
