@@ -194,7 +194,8 @@ strlist joineach(const char* sep, const char* body, strlist list);
 #define PATH(...) join(PATH_SEP, LIST(__VA_ARGS__))
 
 strlist files_in(const char* dir);
-bool endswith(const char* a, const char* b);
+bool starts_with(const char* a, const char* b);
+bool ends_with(const char* a, const char* b);
 strlist filtered(strlist list, const char* ext);
 bool exists(const char* path);
 char* own_path(void);
@@ -410,7 +411,15 @@ strlist files_in(const char* dir) {
     return res;
 }
 
-bool endswith(const char* a, const char* b) {
+bool starts_with(const char* a, const char* b) {
+    size_t alen = strlen(a);
+    size_t blen = strlen(b);
+    if (alen < blen)
+        return false;
+    return memcmp(a, b, blen) == 0;
+}
+
+bool ends_with(const char* a, const char* b) {
     size_t alen = strlen(a);
     size_t blen = strlen(b);
     if (alen < blen)
@@ -421,7 +430,7 @@ bool endswith(const char* a, const char* b) {
 strlist filtered(strlist list, const char* ext) {
     strlist res = { 0, NULL };
     for (size_t i = 0; i < list.count; i++) {
-        if (endswith(list.items[i], ext))
+        if (ends_with(list.items[i], ext))
             res = append(res, list.items[i]);
     }
     return res;
