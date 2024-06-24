@@ -179,19 +179,27 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
 #define BUFFER_SIZE 4096
 
 strlist mklist(size_t count, ...);
+inline static void free_list(strlist list) {
+    free(list.items);
+}
 inline static strlist slice(strlist list, size_t start, size_t count) {
     strlist res = { count, list.items + start };
     return res;
 }
 strlist clone(strlist list);
 strlist append(strlist list, const char* item);
-strlist concat(strlist a, strlist b);
+strlist concat(strlist dest, strlist src);
 strlist remove_item(strlist list, size_t item);
 char* join(const char* sep, strlist list);
 strlist joineach(const char* sep, const char* body, strlist list);
 #define LIST(...) mklist(ARG_COUNT(__VA_ARGS__) IF_ELSE(HAS_ARGS(__VA_ARGS__))(, __VA_ARGS__)())
 
-#define PATH(...) join(PATH_SEP, LIST(__VA_ARGS__))
+static inline char* ___PATH(strlist list) {
+    char* res = join(PATH_SEP, list);
+    free_list(list);
+    return res;
+}
+#define PATH(...) ___PATH(LIST(__VA_ARGS__))
 
 strlist files_in(const char* dir);
 bool starts_with(const char* a, const char* b);
@@ -200,26 +208,44 @@ strlist filtered(strlist list, const char* ext);
 bool exists(const char* path);
 char* read_file(const char* path);
 char* own_path(void);
+bool is_outdated(const char *path);
 char* cwd(void);
 const char* basename(const char* path);
 const char* no_extension(const char* path);
 bool modified_later(const char* p1, const char* p2);
-#define FILES(dir, ext) filtered(files_in(dir), ext)
+static inline strlist ___FILES(strlist files, const char* ext) {
+    strlist res = filtered(files, ext);
+    free_list(files);
+    return res;
+}
+#define FILES(dir, ext) ___FILES(files_in(dir), ext)
 
 int run(strlist cmd, char** output);
 
-#define RUNO(buffer, ...) run(LIST(__VA_ARGS__), buffer)
-#define RUNOL(buffer, args, ...) run(concat(LIST(__VA_ARGS__), args), buffer)
+static inline int ___RUN(strlist cmd, char** output) {
+    int res = run(cmd, output);
+    free_list(cmd);
+    return res;
+}
+#define RUNO(buffer, ...) ___RUN(LIST(__VA_ARGS__), buffer)
+#define RUNOL(buffer, args, ...) ___RUN(concat(LIST(__VA_ARGS__), args), buffer)
 #define RUN(...) RUNO(NULL, __VA_ARGS__)
 #define RUNL(args, ...) RUNOL(NULL, args, __VA_ARGS__)
 
-#define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
+static inline int ___CC(strlist args, const char* out) {
+    int res = RUNL(args, config.cc.command, "-o", out);
+    free_list(args);
+    return res;
+}
+#define CC(files, out) ___CC(concat(clone(config.cc.flags), files), out)
 
 #ifndef SOURCEFILES
+#define ___FREE_SOURCEFILES
 #define SOURCEFILES FILES(config.project.src, ".c")
 #endif
 
 #ifndef OUTPUT
+#define ___FREE_OUTPUT
 #define OUTPUT PATH(config.project.bin, config.project.name)
 #endif
 
@@ -331,11 +357,11 @@ strlist append(strlist list, const char* item) {
     return list;
 }
 
-strlist concat(strlist a, strlist b) {
-    a.items = (const char**)realloc(a.items, sizeof(char*) * (a.count + b.count));
-    memcpy(a.items + a.count, b.items, sizeof(char*) * b.count);
-    a.count += b.count;
-    return a;
+strlist concat(strlist dest, strlist src) {
+    dest.items = (const char**)realloc(dest.items, sizeof(char*) * (dest.count + src.count));
+    memcpy(dest.items + dest.count, src.items, sizeof(char*) * src.count);
+    dest.count += src.count;
+    return dest;
 }
 
 strlist remove_item(strlist list, size_t item) {
@@ -346,12 +372,17 @@ strlist remove_item(strlist list, size_t item) {
 }
 
 char* join(const char* sep, strlist list) {
+    char* res = NULL;
+    if (list.count == 0) {
+        res = (char*)malloc(sizeof(char));
+        res[0] = '\0';
+        return res;
+    }
     size_t sep_len = strlen(sep);
     size_t len = 0;
-    char* res = malloc(1 * sizeof(char));
     for (size_t i = 0; i < list.count; i++) {
         size_t item_len = strlen(list.items[i]);
-        res = (char*)realloc(res, len + item_len + sep_len + 1);
+        res = (char*)realloc(res, (len + item_len + sep_len + 1) * sizeof(char));
         memcpy(res + len, list.items[i], item_len);
         len += item_len;
         if (i < list.count - 1) {
@@ -555,11 +586,20 @@ char* own_path(void) {
     return result;
 }
 
-bool is_outdated(char* path) {
-    FOREACH(file, SOURCEFILES, {
-        if (modified_later(file, path))
+bool is_outdated(const char* path) {
+    strlist files = SOURCEFILES;
+    FOREACH(file, files, {
+        if (modified_later(file, path)) {
+#ifdef ___FREE_SOURCEFILES
+            free_list(files);
+#endif
             return true;
+        }
     });
+
+#ifdef ___FREE_SOURCEFILES
+    free_list(files);
+#endif
     return false;
 }
 
@@ -585,14 +625,14 @@ int run(strlist cmd, char** output) {
 
     char buffer[BUFFER_SIZE];
     size_t content_size = BUFFER_SIZE;
-    char *content = malloc(content_size);
+    char *content = (char*)malloc(content_size);
 
     size_t total_read = 0;
     while (fgets(buffer, sizeof(buffer), pipe)) {
         size_t len = strlen(buffer);
         if (total_read + len + 1 >= content_size) {
             content_size *= 2;
-            content = realloc(content, content_size);
+            content = (char*)realloc(content, content_size);
         }
         strcpy(content + total_read, buffer);
         total_read += len;
@@ -603,11 +643,15 @@ int run(strlist cmd, char** output) {
         *output = content;
     } else {
         printf("%s", content);
+        free(content);
     }
     
     int res = pclose(pipe);
     if (res != 0)
         ERROR("%s exited with status %d", showcmd, res);
+
+    free(showcmd);
+    free(strcmd);
 
     return res;
 }
@@ -619,16 +663,26 @@ int run(strlist cmd, char** output) {
 
 // commands
 int ___run(strlist argv) {
-    if (!exists(OUTPUT) || is_outdated(OUTPUT)) {
+    char* output = OUTPUT;
+    if (!exists(output) || is_outdated(output)) {
         if (config.process.build(argv) != 0)
             FATAL("cannot build executable");
     }
 
-    return RUNL(config.process.passthrough, OUTPUT);
+    int res = RUNL(config.process.passthrough, output);
+#ifdef ___FREE_OUTPUT
+    free(output);
+#endif
+    return res;
 }
 
 int ___build(strlist argv) {
-    return CC(SOURCEFILES, OUTPUT);
+    char* output = OUTPUT;
+    int res = CC(SOURCEFILES, output);
+#ifdef ___FREE_OUTPUT
+    free(output);
+#endif
+    return res;
 }
 
 #ifndef _CUILT_NO_MAIN
