@@ -178,6 +178,8 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
 
 #define BUFFER_SIZE 4096
 
+char* reallocat(char* dest, const char* src);
+
 strlist mklist(size_t count, ...);
 inline static void free_list(strlist list) {
     free(list.items);
@@ -329,7 +331,11 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...) {
         exit(1);
     }
 }
-
+char* reallocat(char* dest, const char* src) {
+    dest = (char*)realloc(dest, strlen(dest) + strlen(src) + 1);
+    strcat(dest, src);
+    return dest;
+}
 // strlist
 strlist mklist(size_t count, ...) {
     strlist res = { 0, NULL };
@@ -382,15 +388,15 @@ char* join(const char* sep, strlist list) {
     size_t len = 0;
     for (size_t i = 0; i < list.count; i++) {
         size_t item_len = strlen(list.items[i]);
-        res = (char*)realloc(res, (len + item_len + sep_len + 1) * sizeof(char));
+        res = (char*)realloc(res, (len + item_len + (i < list.count - 1 ? sep_len : 0) + 1) * sizeof(char));
         memcpy(res + len, list.items[i], item_len);
         len += item_len;
         if (i < list.count - 1) {
             memcpy(res + len, sep, sep_len);
             len += sep_len;
         }
+        res[len] = '\0';
     }
-    res[len] = '\0';
     return res;
 }
 
