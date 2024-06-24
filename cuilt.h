@@ -43,6 +43,7 @@ By using the Software, Users and Entities agree to the terms of this license.
 #ifndef _CUILT_H
 #define _CUILT_H
 
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -55,13 +56,20 @@ By using the Software, Users and Entities agree to the terms of this license.
 #ifdef _WIN32
 #   include <windows.h>
 #   include <io.h>
+#   include <direct.h>
 
 #   define access _access
-#   define F_OK 0
-#   define PATH_SEP "\\"
-#   define PATH_MAX MAX_PATH
+#   define mkdir(path, mode) _mkdir(path)
+#   define open _open
 #   define popen _popen
 #   define pclose _pclose
+#   define PATH_SEP "\\"
+#   define PATH_MAX MAX_PATH
+#   define F_OK 0
+#   define O_CREAT _O_CREAT
+#   define O_WRONLY _O_WRONLY
+#   define O_RDONLY _O_RDONLY
+#   define O_TRUNC _O_TRUNC
 #elif __linux__
 #   ifndef __USE_XOPEN2K
 #       define __USE_XOPEN2K
@@ -69,6 +77,8 @@ By using the Software, Users and Entities agree to the terms of this license.
 #   include <dirent.h>
 #   include <linux/limits.h>
 #   include <unistd.h>
+#   include <sys/stat.h>
+#   include <sys/types.h>
 #   include <sys/wait.h>
 
 #   define PATH_SEP "/"
@@ -76,6 +86,8 @@ By using the Software, Users and Entities agree to the terms of this license.
 #   include <dirent.h>
 #   include <libproc.h>
 #   include <unistd.h>
+#   include <sys/stat.h>
+#   include <sys/types.h>
 #   include <sys/wait.h>
 
 #   define PATH_SEP "/"
@@ -221,6 +233,20 @@ static inline strlist ___FILES(strlist files, const char* ext) {
     return res;
 }
 #define FILES(dir, ext) ___FILES(files_in(dir), ext)
+static inline void MKDIR(const char* path) {
+    if (mkdir(path, 0755) < 0) 
+        ERROR("failed to create %s", path);
+    else
+        INFO("created %s", path);
+}
+static inline void TOUCH(const char* path) {
+    if (open(path, O_CREAT | O_WRONLY, 0644) < 0)
+        ERROR("failed to create %s", path);
+    else
+        INFO("created %s", path);
+}
+void mk_all_dirs(const char* path);
+#define MKDIRS(path) mk_all_dirs(path)
 
 int run(strlist cmd, char** output);
 
@@ -332,7 +358,12 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...) {
     }
 }
 char* reallocat(char* dest, const char* src) {
-    dest = (char*)realloc(dest, strlen(dest) + strlen(src) + 1);
+    if (!dest) {
+        dest = (char*)malloc(strlen(src) + 1);
+        dest[0] = '\0';
+    } else {
+        dest = (char*)realloc(dest, strlen(dest) + strlen(src) + 1);
+    }
     strcat(dest, src);
     return dest;
 }
@@ -616,6 +647,42 @@ bool is_outdated(const char* path) {
     return false;
 }
 
+void mk_all_dirs(const char *path) {
+    strlist parts = split(PATH_SEP, path);
+    if (parts.count == 0)
+        return;
+#ifdef _WIN32
+    if (strlen(parts.items[0]) == 2 && parts.items[0][1] == ':') {
+        int shift = 3;
+#else
+    if (parts.items[0][0] == '\0') {
+        int shift = 1;
+#endif
+        parts = slice(parts, 1, parts.count - 1);
+        size_t len = strlen(parts.items[0]);
+        parts.items[0] = (char*)realloc((void*)parts.items[0], len + shift + 1);
+        memmove((void*)(parts.items[0] + shift), parts.items[0], len + 1);
+#ifdef _WIN32
+        memcpy((void*)parts.items[0], parts.items[-1], 2);
+        ((char*)parts.items[0])[2] = PATH_SEP[0];
+#else
+        ((char*)parts.items[0])[0] = PATH_SEP[0];
+#endif
+    }
+    char* dir = NULL;
+    for (size_t i = 0; i < parts.count; i++) {
+        if (i != 0)
+            dir = reallocat(dir, PATH_SEP);
+        dir = reallocat(dir, parts.items[i]);
+        if (mkdir(dir, 0755) < 0) {
+            ERROR("failed to create %s", dir);
+            return;
+        }
+    }
+    free(dir);
+    INFO("created %s", path);
+}
+
 // run
 int run(strlist cmd, char** output) {
     if (cmd.count == 0)
@@ -690,6 +757,7 @@ int ___run(strlist argv) {
 }
 
 int ___build(strlist argv) {
+    MKDIRS(config.project.bin);
     char* output = OUTPUT;
     int res = CC(SOURCEFILES, output);
 #ifdef ___FREE_OUTPUT
