@@ -60,6 +60,8 @@ By using the Software, Users and Entities agree to the terms of this license.
 #   define F_OK 0
 #   define PATH_SEP "\\"
 #   define PATH_MAX MAX_PATH
+#   define popen _popen
+#   define pclose _pclose
 #elif __linux__
 #   ifndef __USE_XOPEN2K
 #       define __USE_XOPEN2K
@@ -174,7 +176,13 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
     } while (0)
 #define FOREACH(item, list, body) ___FOREACH(item, list, body, __COUNTER__)
 
+#define BUFFER_SIZE 4096
+
 strlist mklist(size_t count, ...);
+inline static strlist slice(strlist list, size_t start, size_t count) {
+    strlist res = { count, list.items + start };
+    return res;
+}
 strlist clone(strlist list);
 strlist append(strlist list, const char* item);
 strlist concat(strlist a, strlist b);
@@ -196,10 +204,12 @@ const char* no_extension(const char* path);
 bool modified_later(const char* p1, const char* p2);
 #define FILES(dir, ext) filtered(files_in(dir), ext)
 
-int run(strlist cmd);
+int run(strlist cmd, char** output);
 
-#define RUN(...) run(LIST(__VA_ARGS__))
-#define RUNL(files, ...) run(concat(LIST(__VA_ARGS__), files))
+#define RUNO(buffer, ...) run(LIST(__VA_ARGS__), buffer)
+#define RUNOL(buffer, args, ...) run(concat(LIST(__VA_ARGS__), args), buffer)
+#define RUN(...) RUNO(NULL, __VA_ARGS__)
+#define RUNL(args, ...) RUNOL(NULL, args, __VA_ARGS__)
 
 #define CC(files, out) RUNL(concat(config.cc.flags, files), config.cc.command, "-o", out)
 
@@ -210,7 +220,6 @@ int run(strlist cmd);
 #ifndef OUTPUT
 #define OUTPUT PATH(config.project.bin, config.project.name)
 #endif
-
 
 #endif // _CUILT_H
 
@@ -525,73 +534,52 @@ bool is_outdated(char* path) {
 }
 
 // run
-int run(strlist cmd) {
+int run(strlist cmd, char** output) {
     if (cmd.count == 0)
         return 0;
 
-    char* strcmd = join(" ", cmd);
-    cmd = append(clone(cmd), NULL);
+    char* showcmd = join(" ", cmd);
+    char* strcmd = join("\" \"", cmd);
+    size_t strcmdlen = strlen(strcmd);
+    strcmd = (char*)realloc(strcmd, strcmdlen + 3);
+    memmove(strcmd + 1, strcmd, strcmdlen);
+    strcmd[0] = '"';
+    strcmd[strcmdlen + 1] = '"';
+    strcmd[strcmdlen + 2] = '\0';
 
-#ifdef _WIN32
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
-
-    INFO("%s", strcmd);
-    if (!CreateProcessA(NULL, strcmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        ERROR("task failed: %s", strcmd);
+    FILE *pipe = popen(strcmd, "r");
+    if (!pipe) {
+        ERROR("failed to run %s", showcmd);
         return 1;
     }
 
-    WaitForSingleObject(pi.hProcess, INFINITE);
+    char buffer[BUFFER_SIZE];
+    size_t content_size = BUFFER_SIZE;
+    char *content = malloc(content_size);
 
-    DWORD exit_code;
-    GetExitCodeProcess(pi.hProcess, &exit_code);
-
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
-
-    if (exit_code != 0) {
-        ERROR("task failed: %s", strcmd);
-        return exit_code;
-    }
-#else
-    pid_t pid = fork();
-
-    if (pid < 0) {
-        ERROR("task failed: %s", strcmd);
-    } else if (pid == 0) {
-        INFO("%s", strcmd);
-        if (execvp(cmd.items[0], (char* const*)cmd.items) < 0) {
-            ERROR("task failed: %s", strcmd);
-            return 1;
+    size_t total_read = 0;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        size_t len = strlen(buffer);
+        if (total_read + len + 1 >= content_size) {
+            content_size *= 2;
+            content = realloc(content, content_size);
         }
+        strcpy(content + total_read, buffer);
+        total_read += len;
+    }
+    content[total_read] = '\0';
+
+    if (output) {
+        *output = content;
     } else {
-        int status;
-        pid_t wpid = waitpid(pid, &status, 0);
-
-        if (wpid == -1) {
-            ERROR("task failed: %s", strcmd);
-            return 1;
-        }
-
-        if (WIFEXITED(status)) {
-            if (WEXITSTATUS(status) != 0) {
-                ERROR("task failed: %s", strcmd);
-                return WEXITSTATUS(status);
-            }
-        }
-        else {
-            ERROR("task failed: %s", strcmd);
-            return 1;
-        }
+        printf("%s", content);
     }
-#endif
     
-    return 0;
+    int res = pclose(pipe);
+    if (res != 0)
+        ERROR("%s exited with status %d", showcmd, res);
+
+    return res;
 }
 
 #define COMMAND_BUILD "build"
