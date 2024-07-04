@@ -1,5 +1,0 @@
-Diagnostics:
-  Suppress: misc-definitions-in-headers
-
-CompileFlags:
-  Add: -xc-header
