@@ -43,6 +43,7 @@ Args:
 - `-cc <CC>` - override `config.cc.command` with `CC`
 - `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
 - `-log <LEVEL:debug|info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
+- `-release|-debug` - build in release or debug mode (debug if default)
 
 ## Configuration
 
@@ -61,6 +62,8 @@ CONFIG({
     .cc = {
         .command = "cc",         // compiler command
         .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"), // compiler flags
+        .debug_flags = LIST("-ggdb", "-O0"),
+        .release_flags = LIST("-O3"),
     },
     .process = {                 // can be set to customize the processes
         .init = NULL,            // init function that will be called before any command

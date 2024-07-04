@@ -151,6 +151,8 @@ struct config_t {
     struct {
         const char* command;
         strlist flags;
+        strlist debug_flags;
+        strlist release_flags;
     } cc;
     struct {
         process_t init;
@@ -165,6 +167,7 @@ struct config_t {
         const char* project_c;
         const char* project_exe;
         strlist passthrough;
+        bool release;
     } __internal;
 };
 extern struct config_t config;
@@ -251,7 +254,8 @@ int run(strlist* cmd, char** output);
 #define RUN(...) RUNO(NULL, __VA_ARGS__)
 #define RUNL(args, ...) RUNOL(NULL, args, __VA_ARGS__)
 
-#define CC(files, output) run(LIST_LIST(LIST(config.cc.command, "-o", output), config.cc.flags, files), NULL)
+#define CC(files, output) run(LIST_LIST(LIST(config.cc.command, "-o", output), config.cc.flags, \
+    (config.__internal.release ? config.cc.release_flags : config.cc.debug_flags), files), NULL)
 
 extern strlist source;
 extern const char* output;
@@ -277,6 +281,8 @@ struct config_t default_config(void) {
         .cc = {
             .command = "cc",
             .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
+            .debug_flags = LIST("-ggdb", "-O0"),
+            .release_flags = LIST("-O3"),
         },
         .process = {
             .init = NULL,
@@ -290,6 +296,7 @@ struct config_t default_config(void) {
             .passthrough = NULL,
             .project_c = NULL,
             .project_exe = own_path(),
+            .release = false,
         }
     };
     return res;
@@ -856,6 +863,10 @@ int main(int argc, const char* argv[]) {
             if (_argv[i + 1] == NULL)
                 FATAL("missing argument for -cflags");
             config.cc.flags = split(" ", _argv[++i]);
+        } else if (strcmp(arg, "-debug") == 0) {
+            config.__internal.release = false;
+        } else if (strcmp(arg, "-release") == 0) {
+            config.__internal.release = true;
         } else if (arg[0] != '\0' && arg[0] == '-') {
             ERROR("unknown option: %s", arg);
         } else {
