@@ -14,7 +14,7 @@ The most basic `project.c` would be:
 ```c
 #include "cuilt.c"
 
-CONFIG()
+CONFIG({  })
 ```
 
 Then run to build your project:
