@@ -8,29 +8,29 @@ Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobu
 
 ## Usage
 
-Place `cuilt.h` in your project's root directory alongside with a custom c file, for example `do.c`.
-The most basic `do.c` would be:
+Place `cuilt.c` in your project's root directory alongside with a custom c file, for example `project.c`.
+The most basic `project.c` would be:
 
 ```c
-#include "cuilt.h"
+#include "cuilt.c"
 
-CONFIG({0})
+CONFIG()
 ```
 
 Then run to build your project:
 ```sh
-cc do.c -o do
-./do build
+cc project.c -o project
+./project build
 ```
 
-You don't have to build the `do` tool ever again, if you change the configuration, it will automatically rebuild itself.
+You don't have to build the `project` tool ever again, if you change the configuration, it will automatically rebuild itself.
 
-Note, that `cuilt.h` contains the main function and other impementations too. Define `_CUILT_NO_MAIN` or `_CUILT_NO_IMPLEMENTATION` to disable them.
+Note, that `cuilt.c` contains the main function and other impementations too. Define `_CUILT_NO_MAIN` or `_CUILT_NO_IMPLEMENTATION` to disable them.
 
 ## Synopsis
 
 ```sh
-./do [COMMAND] [ARGS...] [-- <PASS-THROUGH-ARGS...>]
+./project [ARGS] [COMMAND] [PASS-THROUGH-ARGS]
 ```
 
 Commands:
@@ -42,14 +42,14 @@ Commands:
 Args:
 - `-cc <CC>` - override `config.cc.command` with `CC`
 - `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
-- `-log <LEVEL:info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
+- `-log <LEVEL:debug|info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
 
 ## Configuration
 
 Currently available config options are (with the default values):
 
 ```c
-#include "cuilt.h"
+#include "cuilt.c"
 
 CONFIG({
     .project = {
