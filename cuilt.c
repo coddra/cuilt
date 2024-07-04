@@ -673,6 +673,18 @@ char* own_path(void) {
     return result;
 }
 
+char* parent(const char* path) {
+    size_t len = strlen(path);
+    char* res = (char*)malloc(len + 1);
+    memcpy(res, path, len + 1);
+    char* last = strrchr(res, PATH_SEP[0]);
+    if (last == NULL)
+        res[0] = '\0';
+    else
+        *last = '\0';
+    return res;
+}
+
 char* cwd(void) {
     char* res = (char*)malloc(PATH_MAX);
 #ifdef _WIN32
@@ -715,17 +727,17 @@ void mk_all_dirs(const char *path) {
     char* p = (char*)malloc(len + 1);
     memcpy(p, path, len + 1);
     
-    char* next = strrchr(p, PATH_SEP[0]);
+    char* next = strchr(p, PATH_SEP[0]);
     PLATFORM_DEPENDENT(
         if (len >= 2 && p[1] == ':') next = strrchr(next, PATH_SEP[0]),
-        if (next == p) next = strrchr(next + 1, PATH_SEP[0])
+        if (next == p) next = strchr(next + 1, PATH_SEP[0])
     );
 
     while (next != NULL) {
         *next = '\0';
         MKDIR(p);
         *next = PATH_SEP[0];
-        next = strrchr(p, PATH_SEP[0]);
+        next = strchr(p, PATH_SEP[0]);
     }
     MKDIR(p);
 
@@ -824,18 +836,21 @@ int __build(strlist argv) {
 
 #ifndef _CUILT_NO_MAIN
 int main(int argc, const char* argv[]) {
+    chdir(parent(argv[0]));
+    
     strlist _argv = malloc(argc * sizeof(char*));
     memcpy(_argv, argv + 1, (argc - 1) * sizeof(char*));
     _argv[argc - 1] = NULL;
 
     config = merge_config(default_config(), __config());
-    const char* command = NULL;
+
     source = FILES(config.project.source, ".c");
     output = PATH(config.project.bin, config.project.name);
 
     if (config.process.init)
         config.process.init(_argv);
 
+    const char* command = NULL;
     for (size_t i = 0; _argv[i] != NULL; i++) {
         const char* arg = _argv[i];
 
@@ -875,6 +890,8 @@ int main(int argc, const char* argv[]) {
             break;
         }
     }
+    if (command == NULL)
+        command = COMMAND_BUILD;
 
     if (strcmp(command, COMMAND_RUN) == 0)
         config.log_level = LOG_FATAL;
