@@ -335,51 +335,35 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...) {
 
     bool color = isatty(fileno(stderr));
 #ifdef _WIN32
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE hConsole = GetStdHandle(STD_ERROR_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     if (color)
         GetConsoleScreenBufferInfo(hConsole, &csbi);
 #endif
 
     switch (level) {
+#define COLOR(wcolor, pcolor) if (color) PLATFORM_DEPENDENT( \
+        SetConsoleTextAttribute(hConsole, wcolor | FG_INTENSITY), \
+        fputs("\033[1;" #pcolor "m", stderr) \
+    )
         case LOG_DEBUG:
-            if (color)
-                PLATFORM_DEPENDENT(
-                    SetConsoleTextAttribute(hConsole, FG_RED | FG_GREEN | FG_BLUE | FG_INTENSITY),
-                    fputs("\033[1m", stderr)
-                );
+            COLOR(FG_RED|FG_GREEN|FG_BLUE, 37);
             fputs("[DBG] ", stderr);
             break;
         case LOG_INFO:
-            if (color)
-                PLATFORM_DEPENDENT(
-                    SetConsoleTextAttribute(hConsole, FG_BLUE | FG_GREEN | FG_INTENSITY),
-                    fputs("\033[1;36m", stderr)
-                );
+            COLOR(FG_BLUE|FG_GREEN, 36);
             fputs("[INF] ", stderr);
             break;
         case LOG_WARN:
-            if (color)
-                PLATFORM_DEPENDENT(
-                    SetConsoleTextAttribute(hConsole, FG_RED | FG_GREEN | FG_INTENSITY),
-                    fputs("\033[1;33m", stderr)
-                );
+            COLOR(FG_RED, 33);
             fputs("[WRN] ", stderr);
             break;
         case LOG_ERROR:
-            if (color)
-                PLATFORM_DEPENDENT(
-                    SetConsoleTextAttribute(hConsole, FG_RED | FG_INTENSITY),
-                    fputs("\033[1;31m", stderr)
-                );
+            COLOR(FG_RED, 31);
             fputs("[ERR] ", stderr);
             break;
         case LOG_FATAL:
-            if (color)
-                PLATFORM_DEPENDENT(
-                    SetConsoleTextAttribute(hConsole, FG_RED | FG_INTENSITY),
-                    fputs("\033[1;31m", stderr)
-                );
+            COLOR(FG_RED, 31);
             fputs("[FTL] ", stderr);
             break;
         default: break;
@@ -837,7 +821,7 @@ int __build(strlist argv) {
 #ifndef _CUILT_NO_MAIN
 int main(int argc, const char* argv[]) {
     chdir(parent(argv[0]));
-    
+
     strlist _argv = malloc(argc * sizeof(char*));
     memcpy(_argv, argv + 1, (argc - 1) * sizeof(char*));
     _argv[argc - 1] = NULL;
@@ -918,6 +902,8 @@ int main(int argc, const char* argv[]) {
     
     if (res != 0)
         FATAL("%s failed with exit code %d", command, res);
+    else
+        INFO("%s completed successfully", command);
 
     return 0;
 }
