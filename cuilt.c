@@ -400,7 +400,7 @@ char* reallocat(char* dest, const char* src) {
 }
 
 strlist mklist(size_t count, ...) {
-    strlist res = malloc((count + 1) * sizeof(char*));
+    strlist res = (strlist)malloc((count + 1) * sizeof(char*));
     
     va_list ap;
     va_start(ap, count);
@@ -412,7 +412,7 @@ strlist mklist(size_t count, ...) {
     return res;
 }
 strlist* mklistlist(size_t count, ...) {
-    strlist* res = malloc((count + 1) * sizeof(strlist));
+    strlist* res = (strlist*)malloc((count + 1) * sizeof(strlist));
     
     va_list ap;
     va_start(ap, count);
@@ -459,12 +459,12 @@ char* join(const char* sep, strlist list) {
     char* res;
     size_t len;
     if (list[0] == NULL) {
-        res = malloc(sizeof(char));
+        res = (char*)malloc(sizeof(char));
         res[0] = '\0';
         return res;
     } else {
         len = strlen(list[0]);
-        res = malloc((len + 1) * sizeof(char));
+        res = (char*)malloc((len + 1) * sizeof(char));
         memcpy(res, list[0], len);
     }
     size_t sep_len = strlen(sep);
@@ -607,7 +607,7 @@ strlist filter(strlist list, const char* ext) {
     }
     memmove(list + cut_start, list + cut_start + cut_count, include_count * sizeof(char*));
     len += include_count;
-    list = realloc(list, (len + 1) * sizeof(char*));
+    list = (strlist)realloc(list, (len + 1) * sizeof(char*));
     list[len] = NULL;
     return list;
 }
@@ -822,7 +822,7 @@ int __build(strlist argv) {
 int main(int argc, const char* argv[]) {
     chdir(parent(argv[0]));
 
-    strlist _argv = malloc(argc * sizeof(char*));
+    strlist _argv = (strlist)malloc(argc * sizeof(char*));
     memcpy(_argv, argv + 1, (argc - 1) * sizeof(char*));
     _argv[argc - 1] = NULL;
 
