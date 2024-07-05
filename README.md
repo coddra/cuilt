@@ -1,6 +1,6 @@
 # Cuilt
 
-Cuilt is not at all a build system for C.
+Cuilt is a corss-platform build system for C that does not need installation. To see in-production usage, check out [collaps](https://github.com/coddra/collaps).
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
