@@ -34,10 +34,10 @@ Note, that `cuilt.c` contains the main function and other impementations too. De
 ```
 
 Commands:
-- `build` - build the project
+- `build` - build the project *- default*
 - `run` - run the executable with the `PASS-THROUGH-ARGS`
-- `test` - call the test function - you have to specify `config.process.test` first (see below)
-- `clean` - clean - you have to specify `config.process.clean` first (see below)
+- `test` - call the test function *- set `config.process.test` first (see below)*
+- `clean` - clean *- set `config.process.clean` first (see below)*
 
 Args:
 - `-cc <CC>` - override `config.cc.command` with `CC`
@@ -56,26 +56,22 @@ Currently available config options are (with the default values):
 CONFIG({
     .project = {
         .name = basename(cwd()), // name of the project and the output executable
-        .src = "src",            // source directory
-        .bin = "bin",            // build directory
-        .test = "test",          // test directory
+        .source = "src",
+        .bin = "bin",
+        .test = "test",
     },
     .cc = {
-        .command = "cc",         // compiler command
-        .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"), // compiler flags
+        .command = "cc",
+        .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         .debug_flags = LIST("-ggdb", "-O0"),
         .release_flags = LIST("-O3"),
     },
-    .process = {                 // can be set to customize the processes
-        .init = NULL,            // init function that will be called before any command
-        // builds the executable using the set compiler and flags, 
-        // from c files in the src directory and into the bin directory
-        // with the set name
+    .process = {                 // can be set to customize commands
+        .init = NULL,            // will be called before any command
         .build = &__build,       // default build function
-        // runs the executable with the PASS-THROUGH-ARGS
         .run = &__run,           // default run function
-        .test = NULL,            // test function
-        .clean = NULL,           // clean function
+        .test = NULL,
+        .clean = NULL,
     },
     .log_level = LOG_INFO,       // log level
 })
