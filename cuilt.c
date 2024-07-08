@@ -809,7 +809,19 @@ int __run(strlist argv) {
 
 int __build(strlist argv) {
     MKDIRS(config.project.bin);
-    int res = CC(source, output);
+
+    strlist objs = NULL;
+    for (int i = 0; source[i] != NULL; i++) {
+        char* obj = PATH(config.project.bin, reallocat(no_extension(basename(source[i])), ".o"));
+        objs = append(objs, obj);
+        int res = run(LIST_LIST(LIST(config.cc.command, source[i], "-c", "-o", obj),
+            config.cc.flags, config.__internal.release ? config.cc.release_flags : config.cc.debug_flags),
+            NULL);
+        if (res != 0)
+            FATAL("cannot compile %s", source[i]);
+    }
+
+    int res = CC(objs, output);
     return res;
 }
 
