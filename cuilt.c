@@ -865,11 +865,16 @@ int __build(strlist argv) {
     }
 
     if (!any_change) {
-        INFO("no changes made, skipping build");
+        DEBUG("no changes made, skipping build");
         return 0;
     }
 
     int res = CC(objs, output);
+    if (res == 0)
+        INFO("build successful");
+    else
+        FATAL("build failed");
+    
     return res;
 }
 
