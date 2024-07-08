@@ -139,6 +139,13 @@ enum LOG_LEVEL {
     LOG_FATAL = 5,
 };
 
+enum COMMAND {
+    C_BUILD,
+    C_RUN,
+    C_TEST,
+    C_CLEAN
+};
+
 typedef int (*process_t)(strlist argv);
 
 struct config_t {
@@ -829,13 +836,7 @@ int run(strlist* cmd, char** output) {
 }
 
 int __run(strlist argv) {
-    if (!exists(output) || is_outdated(output, source)) {
-        if (config.process.build(argv) != 0)
-            FATAL("cannot build executable");
-    }
-
-    int res = RUNL(config.__internal.passthrough, output);
-    return res;
+    return RUNL(config.__internal.passthrough, output);
 }
 
 int __build(strlist argv) {
@@ -859,7 +860,7 @@ int __build(strlist argv) {
     }
 
     if (!any_change) {
-        INFO("no changes made, nothing to build");
+        INFO("no changes made, skipping build");
         return 0;
     }
 
@@ -876,30 +877,38 @@ int __build(strlist argv) {
 int main(int argc, const char* argv[]) {
     chdir(parent(argv[0]));
 
-    strlist _argv = (strlist)malloc(argc * sizeof(char*));
-    memcpy(_argv, argv + 1, (argc - 1) * sizeof(char*));
-    _argv[argc - 1] = NULL;
+    memcpy(argv, argv + 1, (argc - 1) * sizeof(char*));
+    argv[argc - 1] = NULL;
 
     config = merge_config(default_config(), __config());
+
+    if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
+        INFO("rebuilding...");
+        config.log_level = LOG_FATAL;
+        if (RUN(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
+            FATAL("failed to rebuild %s", argv[0]);
+        return RUNL(argv, config.__internal.project_exe);
+    }
 
     source = FILES(config.project.source, ".c");
     output = PATH(config.project.bin, config.project.name);
 
     if (config.process.init)
-        config.process.init(_argv);
+        config.process.init(argv);
 
-    const char* command = NULL;
-    for (size_t i = 0; _argv[i] != NULL; i++) {
-        const char* arg = _argv[i];
+    enum COMMAND command = C_BUILD;
+    const char* cmdstr = NULL;
+    for (size_t i = 0; argv[i] != NULL; i++) {
+        const char* arg = argv[i];
 
         if (strcmp(arg, "-cc") == 0) {
-            if (_argv[i + 1] == NULL)
+            if (argv[i + 1] == NULL)
                 FATAL("missing argument for -cc");
-            config.cc.command = _argv[++i];
+            config.cc.command = argv[++i];
         } else if (strcmp(arg, "-log") == 0) {
-            if (_argv[i + 1] == NULL)
+            if (argv[i + 1] == NULL)
                 FATAL("missing argument for -log");
-            arg = _argv[++i];
+            arg = argv[++i];
             if (strcmp(arg, "debug") == 0)
                 config.log_level = LOG_DEBUG;
             else if (strcmp(arg, "info") == 0)
@@ -913,51 +922,63 @@ int main(int argc, const char* argv[]) {
             else
                 ERROR("unknown log level: %s", arg);
         } else if (strcmp(arg, "-cflags") == 0) {
-            if (_argv[i + 1] == NULL)
+            if (argv[i + 1] == NULL)
                 FATAL("missing argument for -cflags");
-            config.cc.flags = split(" ", _argv[++i]);
+            config.cc.flags = split(" ", argv[++i]);
         } else if (strcmp(arg, "-debug") == 0) {
             config.__internal.release = false;
         } else if (strcmp(arg, "-release") == 0) {
             config.__internal.release = true;
-        } else if (arg[0] != '\0' && arg[0] == '-') {
+        } else if (arg[0] == '-') {
             ERROR("unknown option: %s", arg);
         } else {
-            command = arg;
-            config.__internal.passthrough = _argv + i + 1;
+            cmdstr = arg;
+            if (strcmp(cmdstr, COMMAND_BUILD) == 0)
+                command = C_BUILD;
+            else if (strcmp(cmdstr, COMMAND_RUN) == 0)
+                command = C_RUN;
+            else if (strcmp(cmdstr, COMMAND_TEST) == 0)
+                command = C_TEST;
+            else if (strcmp(cmdstr, COMMAND_CLEAN) == 0)
+                command = C_CLEAN;
+            else
+                FATAL("unknown command: %s", cmdstr);
+
+            config.__internal.passthrough = argv + i + 1;
             break;
         }
     }
-    if (command == NULL)
-        command = COMMAND_BUILD;
 
-    if (strcmp(command, COMMAND_RUN) == 0)
+    if (cmdstr == NULL)
+        FATAL("no command specified");
+
+    if (command == C_RUN)
         config.log_level = LOG_FATAL;
 
-    if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
-        INFO("rebuilding...");
-        config.log_level = LOG_FATAL;
-        if (RUN(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
-            FATAL("failed to rebuild %s", argv[0]);
-        return RUNL(_argv, config.__internal.project_exe);
+    switch (command) {
+        case C_BUILD:
+            if (config.process.build == NULL)
+                FATAL("build not implemented");
+            config.process.build(argv);
+            break;
+        case C_RUN:
+            if (config.process.run == NULL)
+                FATAL("run not implemented");
+            if (config.process.build)
+                config.process.build(argv);
+            config.process.run(argv);
+            break;
+        case C_TEST:
+            if (config.process.test == NULL)
+                FATAL("test not implemented");
+            if (config.process.build)
+                config.process.build(argv);
+            config.process.test(argv);
+            break;
+        case C_CLEAN:
+            config.process.clean(argv);
+            break;
     }
-
-    int res = 0;
-    if (strcmp(command, COMMAND_BUILD) == 0 && config.process.build)
-        res = config.process.build(_argv);
-    else if (strcmp(command, COMMAND_RUN) == 0 && config.process.run)
-        res = config.process.run(_argv);
-    else if (strcmp(command, COMMAND_TEST) == 0 && config.process.test)
-        res = config.process.test(_argv);
-    else if (strcmp(command, COMMAND_CLEAN) == 0 && config.process.clean)
-        res = config.process.clean(_argv);
-    else
-        FATAL("unknown command: %s", command);
-    
-    if (res != 0)
-        FATAL("%s failed with exit code %d", command, res);
-    else
-        INFO("%s completed successfully", command);
 
     return 0;
 }
