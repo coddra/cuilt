@@ -555,10 +555,11 @@ bool modified_later(const char* p1, const char* p2)
 strlist get_deps(const char* path) {
     char* buf = NULL;
     RUNO(&buf, config.cc.pp, "-MM", path);
-    free(buf);
     
     strlist res = split(" ", buf);
-    res += 1;
+    free(buf);
+
+    res++;
     for (int i = 0; res[i] != NULL; i++)
         if (res[i][0] == '\\')
             delete(res, i);
@@ -572,7 +573,7 @@ strlist get_deps(const char* path) {
 
 bool is_outdated(const char *path, strlist deps) {
     for (int i = 0; deps[i] != NULL; i++) {
-        if (modified_later(source[i], path))
+        if (modified_later(deps[i], path))
             return true;
     }
     return false;
@@ -840,15 +841,26 @@ int __run(strlist argv) {
 int __build(strlist argv) {
     MKDIRS(config.project.bin);
 
+    bool any_change = false;
     strlist objs = NULL;
     for (int i = 0; source[i] != NULL; i++) {
         char* obj = PATH(config.project.bin, reallocat(no_extension(basename(source[i])), ".o"));
         objs = append(objs, obj);
+
+        if(exists(obj) && !is_outdated(obj, get_deps(source[i])))
+            continue;
+        any_change = true;
+
         int res = run(LIST_LIST(LIST(config.cc.command, source[i], "-c", "-o", obj),
             config.cc.flags, config.__internal.release ? config.cc.release_flags : config.cc.debug_flags),
             NULL);
         if (res != 0)
             FATAL("cannot compile %s", source[i]);
+    }
+
+    if (!any_change) {
+        INFO("no changes made, nothing to build");
+        return 0;
     }
 
     int res = CC(objs, output);
