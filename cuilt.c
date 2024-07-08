@@ -153,6 +153,7 @@ struct config_t {
         strlist flags;
         strlist debug_flags;
         strlist release_flags;
+        const char* pp;
     } cc;
     struct {
         process_t init;
@@ -198,6 +199,7 @@ strlist mklist(size_t count, ...);
 strlist* mklistlist(size_t count, ...);
 size_t length(strlist list);
 strlist append(strlist list, const char* item);
+strlist delete(strlist list, size_t index);
 strlist split(const char* sep, const char* body);
 char* join(const char* sep, strlist list);
 inline static char* join_free(const char* sep, strlist list) {
@@ -215,6 +217,8 @@ bool ends_with(const char* a, const char* b);
 
 bool exists(const char* path);
 bool modified_later(const char* p1, const char* p2);
+
+strlist get_depst(const char* path);
 bool is_outdated(const char *path, strlist deps);
 
 strlist files_in(const char* dir);
@@ -283,6 +287,7 @@ struct config_t default_config(void) {
             .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
             .debug_flags = LIST("-ggdb", "-O0"),
             .release_flags = LIST("-O3"),
+            .pp = "cpp",
         },
         .process = {
             .init = NULL,
@@ -442,6 +447,13 @@ strlist append(strlist list, const char* item) {
     return list;
 }
 
+strlist delete(strlist list, size_t index) {
+    size_t len = length(list);
+    memmove(list + index, list + index + 1, (len - index) * sizeof(char*));
+    list[len - 1] = NULL;
+    return list;
+}
+
 strlist split(const char* sep, const char* body) {
     strlist res = NULL;
     size_t len = strlen(body);
@@ -538,6 +550,24 @@ bool modified_later(const char* p1, const char* p2)
 
     return p1_time > p2_time;
 #endif
+}
+
+strlist get_deps(const char* path) {
+    char* buf = NULL;
+    RUNO(&buf, config.cc.pp, "-MM", path);
+    free(buf);
+    
+    strlist res = split(" ", buf);
+    res += 1;
+    for (int i = 0; res[i] != NULL; i++)
+        if (res[i][0] == '\\')
+            delete(res, i);
+
+    size_t len = length(res);        
+    size_t lastlen = strlen(res[len - 1]);
+    *(char*)(&res[len - 1][lastlen - 1]) = '\0';
+
+    return res;
 }
 
 bool is_outdated(const char *path, strlist deps) {
