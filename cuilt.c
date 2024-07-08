@@ -215,7 +215,7 @@ bool ends_with(const char* a, const char* b);
 
 bool exists(const char* path);
 bool modified_later(const char* p1, const char* p2);
-bool is_outdated(const char *path);
+bool is_outdated(const char *path, strlist deps);
 
 strlist files_in(const char* dir);
 strlist filter(strlist list, const char* ext);
@@ -540,8 +540,8 @@ bool modified_later(const char* p1, const char* p2)
 #endif
 }
 
-bool is_outdated(const char *path) {
-    for (int i = 0; source[i] != NULL; i++) {
+bool is_outdated(const char *path, strlist deps) {
+    for (int i = 0; deps[i] != NULL; i++) {
         if (modified_later(source[i], path))
             return true;
     }
@@ -798,7 +798,7 @@ int run(strlist* cmd, char** output) {
 }
 
 int __run(strlist argv) {
-    if (!exists(output) || is_outdated(output)) {
+    if (!exists(output) || is_outdated(output, source)) {
         if (config.process.build(argv) != 0)
             FATAL("cannot build executable");
     }
