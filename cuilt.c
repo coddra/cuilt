@@ -874,7 +874,7 @@ int __build(strlist argv) {
         INFO("build successful");
     else
         FATAL("build failed");
-    
+
     return res;
 }
 
@@ -907,7 +907,6 @@ int main(int argc, const char* argv[]) {
         config.process.init(argv);
 
     enum COMMAND command = C_BUILD;
-    const char* cmdstr = NULL;
     for (size_t i = 0; argv[i] != NULL; i++) {
         const char* arg = argv[i];
 
@@ -944,28 +943,21 @@ int main(int argc, const char* argv[]) {
         } else if (arg[0] == '-') {
             ERROR("unknown option: %s", arg);
         } else {
-            cmdstr = arg;
-            if (strcmp(cmdstr, COMMAND_BUILD) == 0)
+            if (strcmp(arg, COMMAND_BUILD) == 0)
                 command = C_BUILD;
-            else if (strcmp(cmdstr, COMMAND_RUN) == 0)
+            else if (strcmp(arg, COMMAND_RUN) == 0)
                 command = C_RUN;
-            else if (strcmp(cmdstr, COMMAND_TEST) == 0)
+            else if (strcmp(arg, COMMAND_TEST) == 0)
                 command = C_TEST;
-            else if (strcmp(cmdstr, COMMAND_CLEAN) == 0)
+            else if (strcmp(arg, COMMAND_CLEAN) == 0)
                 command = C_CLEAN;
             else
-                FATAL("unknown command: %s", cmdstr);
+                FATAL("unknown command: %s", arg);
 
             config.__internal.passthrough = argv + i + 1;
             break;
         }
     }
-
-    if (cmdstr == NULL)
-        FATAL("no command specified");
-
-    if (command == C_RUN)
-        config.log_level = LOG_FATAL;
 
     switch (command) {
         case C_BUILD:
@@ -976,6 +968,7 @@ int main(int argc, const char* argv[]) {
         case C_RUN:
             if (config.process.run == NULL)
                 FATAL("run not implemented");
+            config.log_level = LOG_FATAL;
             if (config.process.build)
                 config.process.build(argv);
             config.process.run(argv);
