@@ -44,6 +44,7 @@ Args:
 - `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
 - `-log <LEVEL:debug|info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
 - `-release|-debug` - build in release or debug mode (debug if default)
+- `-force` - force build for each object file
 
 ## Configuration
 
@@ -70,9 +71,9 @@ CONFIG({
         // builds the executable using the set compiler and flags, 
         // from c files in the src directory and into the bin directory
         // with the set name
-        .build = &___build,      // build function
+        .build = &__build,       // default build function
         // runs the executable with the PASS-THROUGH-ARGS
-        .run = &___run,          // run function
+        .run = &__run,           // default run function
         .test = NULL,            // test function
         .clean = NULL,           // clean function
     },
