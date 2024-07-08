@@ -176,6 +176,7 @@ struct config_t {
         const char* project_exe;
         strlist passthrough;
         bool release;
+        bool force;
     } __internal;
 };
 extern struct config_t config;
@@ -309,6 +310,7 @@ struct config_t default_config(void) {
             .project_c = NULL,
             .project_exe = own_path(),
             .release = false,
+            .force = false,
         }
     };
     return res;
@@ -579,6 +581,9 @@ strlist get_deps(const char* path) {
 }
 
 bool is_outdated(const char *path, strlist deps) {
+    if (!exists(path))
+        return true;
+
     for (int i = 0; deps[i] != NULL; i++) {
         if (modified_later(deps[i], path))
             return true;
@@ -848,7 +853,7 @@ int __build(strlist argv) {
         char* obj = PATH(config.project.bin, reallocat(no_extension(basename(source[i])), ".o"));
         objs = append(objs, obj);
 
-        if(exists(obj) && !is_outdated(obj, get_deps(source[i])))
+        if(!config.__internal.force && !is_outdated(obj, get_deps(source[i])))
             continue;
         any_change = true;
 
@@ -929,6 +934,8 @@ int main(int argc, const char* argv[]) {
             config.__internal.release = false;
         } else if (strcmp(arg, "-release") == 0) {
             config.__internal.release = true;
+        } else if (strcmp(arg, "-force") == 0) {
+            config.__internal.force = true;
         } else if (arg[0] == '-') {
             ERROR("unknown option: %s", arg);
         } else {
