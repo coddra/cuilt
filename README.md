@@ -4,7 +4,7 @@ Cuilt is a corss-platform build system for C that does not need installation. To
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
-**Disclaimer:** *Still under development. Partially tested on linux and windows, not tested on macos.*
+**Disclaimer:** *Still under development. Mostly tested on linux, does not work on windows, not tested on macos. Stating it is cross-platform is a bit bold for now.*
 
 ## Usage
 
