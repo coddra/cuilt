@@ -296,7 +296,7 @@ struct config_t default_config(void) {
         .cc = {
             .command = "cc",
             .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
-            .debug_flags = LIST("-ggdb", "-O0"),
+            .debug_flags = LIST("-g", "-O0"),
             .release_flags = LIST("-O3"),
             .pp = "cpp",
         },

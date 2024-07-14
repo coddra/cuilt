@@ -63,7 +63,7 @@ CONFIG({
     .cc = {
         .command = "cc",
         .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
-        .debug_flags = LIST("-ggdb", "-O0"),
+        .debug_flags = LIST("-g", "-O0"),
         .release_flags = LIST("-O3"),
     },
     .process = {                 // can be set to customize commands
