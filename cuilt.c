@@ -202,6 +202,8 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...);
 #define BUFFER_SIZE 4096
 
 char* reallocat(char* dest, const char* src);
+char* enquote(const char* str);
+char* argument(const char* str);
 
 strlist mklist(size_t count, ...);
 strlist* mklistlist(size_t count, ...);
@@ -222,6 +224,7 @@ inline static char* join_free(const char* sep, strlist list) {
 
 bool starts_with(const char* a, const char* b);
 bool ends_with(const char* a, const char* b);
+bool contains(const char* a, const char* b);
 
 bool exists(const char* path);
 bool modified_later(const char* p1, const char* p2);
@@ -413,6 +416,26 @@ char* reallocat(char* dest, const char* src) {
     return dest;
 }
 
+char* enquote(const char* str) {
+    size_t len = strlen(str);
+    char* res = (char*)malloc(len + 3);
+    memmove(res + 1, str, len + 1);
+    res[0] = '"';
+    res[len + 1] = '"';
+    res[len + 2] = '\0';
+    return res;
+}
+
+char* argument(const char* str) {
+    if (contains(str, " ")) {
+        return enquote(str);
+    } else {
+        char* res = (char*)malloc(strlen(str) + 1);
+        strcpy(res, str);
+        return res;
+    }
+}
+
 strlist mklist(size_t count, ...) {
     strlist res = (strlist)malloc((count + 1) * sizeof(char*));
     
@@ -516,6 +539,10 @@ bool ends_with(const char* a, const char* b) {
     if (alen < blen)
         return false;
     return memcmp(a + alen - blen, b, blen) == 0;
+}
+
+bool contains(const char* a, const char* b) {
+    return strstr(a, b) != NULL;
 }
 
 bool exists(const char* path) {
@@ -774,38 +801,22 @@ void mk_all_dirs(const char *path) {
 
 int run(strlist* cmd, char** output) {
     char* strcmd = NULL;
-    char* showcmd = NULL;
     for (size_t i = 0; cmd[i] != NULL; i++) {
-        char* tmp = join("\" \"", cmd[i]);
-        if (strcmd == NULL)
-            strcmd = tmp;
-        else {
-            strcmd = reallocat(strcmd, "\" \"");
-            strcmd = reallocat(strcmd, tmp);
-            free(tmp);
-        }
-        tmp = join(" ", cmd[i]);
-        if (showcmd == NULL)
-            showcmd = tmp;
-        else {
-            showcmd = reallocat(showcmd, " ");
-            showcmd = reallocat(showcmd, tmp);
-            free(tmp);
+        for (size_t j = 0; cmd[i][j] != NULL; j++) {
+            if (strcmd == NULL) {
+                strcmd = argument(cmd[i][j]);
+            } else {
+                strcmd = reallocat(strcmd, " ");
+                strcmd = reallocat(strcmd, argument(cmd[i][j]));
+            }
         }
     }
 
-    size_t strcmdlen = strlen(strcmd);
-    strcmd = (char*)realloc(strcmd, strcmdlen + 3);
-    memmove(strcmd + 1, strcmd, strcmdlen);
-    strcmd[0] = '"';
-    strcmd[strcmdlen + 1] = '"';
-    strcmd[strcmdlen + 2] = '\0';
-
-    DEBUG("running %s", showcmd);
+    DEBUG("running %s", strcmd);
 
     FILE *pipe = popen(strcmd, "r");
     if (!pipe)
-        FATAL("failed to run %s", showcmd);
+        FATAL("failed to run %s", strcmd);
 
     char buffer[BUFFER_SIZE];
     size_t content_size = BUFFER_SIZE;
@@ -832,9 +843,8 @@ int run(strlist* cmd, char** output) {
     
     int res = pclose(pipe);
     if (res != 0)
-        FATAL("%s exited with status %d", showcmd, res);
+        FATAL("%s exited with status %d", strcmd, res);
 
-    free(showcmd);
     free(strcmd);
 
     return res;
