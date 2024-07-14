@@ -888,16 +888,11 @@ int __build(strlist argv) {
     return res;
 }
 
-#define COMMAND_BUILD "build"
-#define COMMAND_RUN "run"
-#define COMMAND_TEST "test"
-#define COMMAND_CLEAN "clean"
-
 #ifndef _CUILT_NO_MAIN
 int main(int argc, const char* argv[]) {
     chdir(parent(argv[0]));
 
-    memcpy(argv, argv + 1, (argc - 1) * sizeof(char*));
+    memmove(argv, argv + 1, (argc - 1) * sizeof(char*));
     argv[argc - 1] = NULL;
 
     config = merge_config(default_config(), __config());
@@ -918,55 +913,39 @@ int main(int argc, const char* argv[]) {
 
     enum COMMAND command = C_BUILD;
     for (size_t i = 0; argv[i] != NULL; i++) {
-        const char* arg = argv[i];
-
-        if (strcmp(arg, "-cc") == 0) {
-            if (argv[i + 1] == NULL)
-                FATAL("missing argument for -cc");
-            config.cc.command = argv[++i];
-        } else if (strcmp(arg, "-log") == 0) {
-            if (argv[i + 1] == NULL)
-                FATAL("missing argument for -log");
-            arg = argv[++i];
-            if (strcmp(arg, "debug") == 0)
-                config.log_level = LOG_DEBUG;
-            else if (strcmp(arg, "info") == 0)
-                config.log_level = LOG_INFO;
-            else if (strcmp(arg, "warn") == 0)
-                config.log_level = LOG_WARN;
-            else if (strcmp(arg, "error") == 0)
-                config.log_level = LOG_ERROR;
-            else if (strcmp(arg, "fatal") == 0)
-                config.log_level = LOG_FATAL;
-            else
-                ERROR("unknown log level: %s", arg);
-        } else if (strcmp(arg, "-cflags") == 0) {
-            if (argv[i + 1] == NULL)
-                FATAL("missing argument for -cflags");
-            config.cc.flags = split(" ", argv[++i]);
-        } else if (strcmp(arg, "-debug") == 0) {
-            config.__internal.release = false;
-        } else if (strcmp(arg, "-release") == 0) {
-            config.__internal.release = true;
-        } else if (strcmp(arg, "-force") == 0) {
-            config.__internal.force = true;
-        } else if (arg[0] == '-') {
-            ERROR("unknown option: %s", arg);
+#define OPTION(name, action) if (strcmp(argv[i], name) == 0) action
+#define NEXT_ARG(option) if (argv[++i] == NULL) FATAL("missing argument for " option)
+        OPTION("-cc", {
+            NEXT_ARG("-cc");
+            config.cc.command = argv[i];
+        }) else OPTION("-log", {
+            NEXT_ARG("-log");
+            OPTION("debug", config.log_level = LOG_DEBUG);
+            else OPTION("info", config.log_level = LOG_INFO);
+            else OPTION("warn", config.log_level = LOG_WARN);
+            else OPTION("error", config.log_level = LOG_ERROR);
+            else OPTION("fatal", config.log_level = LOG_FATAL);
+            else ERROR("unknown log level: %s", argv[i]);
+        }) else OPTION("-cflags", {
+            NEXT_ARG("-cflags");
+            config.cc.flags = split(" ", argv[i]);
+        }) else OPTION("-debug", config.__internal.release = false);
+        else OPTION("-release", config.__internal.release = true);
+        else OPTION("-force", config.__internal.force = true);
+        else if (argv[i][0] == '-') {
+            ERROR("unknown option: %s", argv[i]);
         } else {
-            if (strcmp(arg, COMMAND_BUILD) == 0)
-                command = C_BUILD;
-            else if (strcmp(arg, COMMAND_RUN) == 0)
-                command = C_RUN;
-            else if (strcmp(arg, COMMAND_TEST) == 0)
-                command = C_TEST;
-            else if (strcmp(arg, COMMAND_CLEAN) == 0)
-                command = C_CLEAN;
-            else
-                FATAL("unknown command: %s", arg);
+            OPTION("build", command = C_BUILD);
+            else OPTION("run", command = C_RUN);
+            else OPTION("test", command = C_TEST);
+            else OPTION("clean", command = C_CLEAN);
+            else FATAL("unknown command: %s", argv[i]);
 
             config.__internal.passthrough = argv + i + 1;
             break;
         }
+#undef OPTION
+#undef CHECK_ARG
     }
 
     switch (command) {
