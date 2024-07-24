@@ -262,14 +262,14 @@ static inline void TOUCH(const char* path) {
 void mk_all_dirs(const char* path);
 #define MKDIRS(path) mk_all_dirs(path)
 
-int run(strlist* cmd, char** output);
+int command(strlist* cmd, char** output);
 
-#define RUNO(buffer, ...) run(LIST_LIST(LIST(__VA_ARGS__)), buffer)
-#define RUNOL(buffer, args, ...) run(LIST_LIST(LIST(__VA_ARGS__), args), buffer)
-#define RUN(...) RUNO(NULL, __VA_ARGS__)
-#define RUNL(args, ...) RUNOL(NULL, args, __VA_ARGS__)
+#define CMDO(buffer, ...) command(LIST_LIST(LIST(__VA_ARGS__)), buffer)
+#define CMDOL(buffer, args, ...) command(LIST_LIST(LIST(__VA_ARGS__), args), buffer)
+#define CMD(...) CMDO(NULL, __VA_ARGS__)
+#define CMDL(args, ...) CMDOL(NULL, args, __VA_ARGS__)
 
-#define CC(files, output) run(LIST_LIST(LIST(config.cc.command, "-o", output), config.cc.flags, \
+#define CC(files, output) command(LIST_LIST(LIST(config.cc.command, "-o", output), config.cc.flags, \
     (config.__internal.release ? config.cc.release_flags : config.cc.debug_flags), files), NULL)
 
 extern strlist source;
@@ -590,7 +590,7 @@ bool modified_later(const char* p1, const char* p2)
 
 strlist get_deps(const char* path) {
     char* buf = NULL;
-    RUNO(&buf, config.cc.pp, "-MM", path);
+    CMDO(&buf, config.cc.pp, "-MM", path);
     
     strlist res = split(" ", buf);
     free(buf);
@@ -799,7 +799,7 @@ void mk_all_dirs(const char *path) {
     return;
 }
 
-int run(strlist* cmd, char** output) {
+int command(strlist* cmd, char** output) {
     char* strcmd = NULL;
     for (size_t i = 0; cmd[i] != NULL; i++) {
         for (size_t j = 0; cmd[i][j] != NULL; j++) {
@@ -853,7 +853,7 @@ int run(strlist* cmd, char** output) {
 }
 
 int __run(strlist argv) {
-    return RUNL(config.__internal.passthrough, output);
+    return CMDL(config.__internal.passthrough, output);
 }
 
 int __build(strlist argv) {
@@ -869,7 +869,7 @@ int __build(strlist argv) {
             continue;
         any_change = true;
 
-        int res = run(LIST_LIST(LIST(config.cc.command, source[i], "-c", "-o", obj),
+        int res = command(LIST_LIST(LIST(config.cc.command, source[i], "-c", "-o", obj),
             config.cc.flags, config.__internal.release ? config.cc.release_flags : config.cc.debug_flags),
             NULL);
         if (res != 0)
@@ -902,9 +902,9 @@ int main(int argc, const char* argv[]) {
     if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
         INFO("rebuilding...");
         config.log_level = LOG_FATAL;
-        if (RUN(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
+        if (CMD(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
             FATAL("failed to rebuild %s", argv[0]);
-        return RUNL(argv, config.__internal.project_exe);
+        return CMDL(argv, config.__internal.project_exe);
     }
 
     source = FILES(config.project.source, ".c");
