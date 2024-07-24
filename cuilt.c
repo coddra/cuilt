@@ -949,29 +949,25 @@ int main(int argc, const char* argv[]) {
     }
 
     switch (command) {
+#define SAFECALL(func) if (config.process.func == NULL) FATAL(#func " not implemented"); config.process.func(argv)
         case C_BUILD:
-            if (config.process.build == NULL)
-                FATAL("build not implemented");
-            config.process.build(argv);
+            SAFECALL(build);
             break;
         case C_RUN:
-            if (config.process.run == NULL)
-                FATAL("run not implemented");
             config.log_level = LOG_FATAL;
             if (config.process.build)
                 config.process.build(argv);
-            config.process.run(argv);
+            SAFECALL(run);
             break;
         case C_TEST:
-            if (config.process.test == NULL)
-                FATAL("test not implemented");
             if (config.process.build)
                 config.process.build(argv);
-            config.process.test(argv);
+            SAFECALL(test);
             break;
         case C_CLEAN:
-            config.process.clean(argv);
+            SAFECALL(clean);
             break;
+#undef SAFECALL
     }
 
     return 0;
