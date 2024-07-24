@@ -815,8 +815,10 @@ int run(strlist* cmd, char** output) {
     DEBUG("running %s", strcmd);
 
     FILE *pipe = popen(strcmd, "r");
-    if (!pipe)
-        FATAL("failed to run %s", strcmd);
+    if (!pipe) {
+        ERROR("failed to run %s", strcmd);
+        return -1;
+    }
 
     char buffer[BUFFER_SIZE];
     size_t content_size = BUFFER_SIZE;
@@ -843,7 +845,7 @@ int run(strlist* cmd, char** output) {
     
     int res = pclose(pipe);
     if (res != 0)
-        FATAL("%s exited with status %d", strcmd, res);
+        ERROR("%s exited with status %d", strcmd, res);
 
     free(strcmd);
 
