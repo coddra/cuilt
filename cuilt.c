@@ -263,11 +263,16 @@ void mk_all_dirs(const char* path);
 #define MKDIRS(path) mk_all_dirs(path)
 
 int command(strlist* cmd, char** output);
+int testcmd(strlist* cmd, const char* desired_output);
+int testcmdf(strlist* cmd, const char* path);
 
 #define CMDO(buffer, ...) command(LIST_LIST(LIST(__VA_ARGS__)), buffer)
 #define CMDOL(buffer, args, ...) command(LIST_LIST(LIST(__VA_ARGS__), args), buffer)
 #define CMD(...) CMDO(NULL, __VA_ARGS__)
 #define CMDL(args, ...) CMDOL(NULL, args, __VA_ARGS__)
+
+#define TEST(output, ...) testcmd(LIST_LIST(LIST(__VA_ARGS__)), output)
+#define TESTF(path, ...) testcmdf(LIST_LIST(LIST(__VA_ARGS__)), path)
 
 #define CC(files, output) command(LIST_LIST(LIST(config.cc.command, "-o", output), config.cc.flags, \
     (config.__internal.release ? config.cc.release_flags : config.cc.debug_flags), files), NULL)
@@ -836,12 +841,10 @@ int command(strlist* cmd, char** output) {
     }
     content[total_read] = '\0';
 
-    if (output) {
+    if (output)
         *output = content;
-    } else {
-        printf("%s", content);
+    else
         free(content);
-    }
     
     int res = pclose(pipe);
     if (res != 0)
@@ -849,6 +852,23 @@ int command(strlist* cmd, char** output) {
 
     free(strcmd);
 
+    return res;
+}
+
+int testcmd(strlist* cmd, const char* desired_output) {
+    char* output = NULL;
+    int res = command(cmd, &output);
+    DEBUG("output:\n%s", output);
+    if (res == 0 && strcmp(output, desired_output) != 0)
+        res = -1;
+    free(output);
+    return res;
+}
+
+int testcmdf(strlist* cmd, const char* path) {
+    char* output = read_file(path);
+    int res = testcmd(cmd, output);
+    free(output);
     return res;
 }
 
