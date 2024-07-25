@@ -432,7 +432,7 @@ char* enquote(const char* str) {
 }
 
 char* argument(const char* str) {
-    if (contains(str, " ")) {
+    if (*str == '\0' || contains(str, " ")) {
         return enquote(str);
     } else {
         char* res = (char*)malloc(strlen(str) + 1);
