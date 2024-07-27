@@ -30,21 +30,22 @@ Note, that `cuilt.c` contains the main function and other impementations too. De
 ## Synopsis
 
 ```sh
-./project [ARGS] [COMMAND] [PASS-THROUGH-ARGS]
+./project [ARGS] [COMMAND] [EXTRA-ARGS]
 ```
 
 Commands:
 - `build` - build the project *- default*
-- `run` - run the executable with the `PASS-THROUGH-ARGS`
+- `run` - run the executable with the `EXTRA-ARGS`
 - `test` - call the test function *- set `config.process.test` first (see below)*
+- `deploy` - test the project and stage, commit, push changes if test was successful. `join(" ", EXTRA-ARGS)` becomes the commit message
 - `clean` - clean *- set `config.process.clean` first (see below)*
 
 Args:
 - `-cc <CC>` - override `config.cc.command` with `CC`
 - `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
 - `-log <LEVEL:debug|info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
-- `-release|-debug` - build in release or debug mode (debug if default)
-- `-force` - force build for each object file
+- `-release|-debug` - build in release or debug mode *- debug by default*
+- `-force` - force build for each object file, even if it's up-to-date
 
 ## Configuration
 
@@ -56,21 +57,22 @@ Currently available config options are (with the default values):
 CONFIG({
     .project = {
         .name = basename(cwd()), // name of the project and the output executable
-        .source = "src",
-        .bin = "bin",
-        .test = "test",
+        .source = "src",         // source directory
+        .bin = "bin",            // output directory
+        .test = "test",          // test directory
     },
     .cc = {
         .command = "cc",
         .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         .debug_flags = LIST("-g", "-O0"),
-        .release_flags = LIST("-O3"),
+        .release_flags = LIST("-O3", "-dNDEBUG"),
     },
     .process = {                 // can be set to customize commands
         .init = NULL,            // will be called before any command
         .build = &__build,       // default build function
         .run = &__run,           // default run function
         .test = NULL,
+        .deploy = &__deploy,     // default deploy function
         .clean = NULL,
     },
     .log_level = LOG_INFO,       // log level

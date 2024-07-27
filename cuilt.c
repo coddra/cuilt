@@ -105,6 +105,7 @@ enum COMMAND {
     C_BUILD,
     C_RUN,
     C_TEST,
+    C_DEPLOY,
     C_CLEAN
 };
 
@@ -129,6 +130,7 @@ struct config_t {
         process_t build;
         process_t run;
         process_t test;
+        process_t deploy;
         process_t clean;
     } process;
     enum LOG_LEVEL log_level;
@@ -136,7 +138,7 @@ struct config_t {
     struct {
         const char* project_c;
         const char* project_exe;
-        strlist passthrough;
+        strlist extra_args;
         bool release;
         bool force;
     } __internal;
@@ -249,6 +251,7 @@ extern const char* output;
 
 int __build(strlist argv);
 int __run(strlist argv);
+int __deploy(strlist argv);
 struct config_t config;
 strlist source;
 const char* output;
@@ -272,11 +275,12 @@ struct config_t default_config(void) {
             .build = &__build,
             .run = &__run,
             .test = NULL,
+            .deploy = &__deploy,
             .clean = NULL,
         },
         .log_level = LOG_INFO,
         .__internal = {
-            .passthrough = NULL,
+            .extra_args = NULL,
             .project_c = NULL,
             .project_exe = own_path(),
             .release = false,
@@ -301,7 +305,7 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
     MERGE(process.test);
     MERGE(process.clean);
     MERGE(log_level);
-    MERGE(__internal.passthrough);
+    MERGE(__internal.extra_args);
     MERGE(__internal.project_c);
     MERGE(__internal.project_exe);
 #undef MERGE
@@ -757,7 +761,7 @@ int testcmdf(strlist* cmd, const char* path) {
 }
 
 int __run(strlist argv) {
-    return CMDL(config.__internal.passthrough, output);
+    return CMDL(config.__internal.extra_args, output);
 }
 
 int __build(strlist argv) {
@@ -792,6 +796,24 @@ int __build(strlist argv) {
         FATAL("build failed");
 
     return res;
+}
+
+int __deploy(strlist argv) {
+    if (length(config.__internal.extra_args) == 0)
+        FATAL("no commit message specified");
+
+    if (config.process.test) {
+        if (config.process.test(argv) != 0)
+            FATAL("test failed, deployment canceled");
+    }
+
+    if (CMD("git", "add", "-A") != 0 ||
+        CMD("git", "commit", "-m", join(" ", config.__internal.extra_args)) != 0 ||
+        CMD("git", "push") != 0)
+        FATAL("deployment failed");
+    else
+        INFO("deployment successful");
+    return 0;
 }
 
 #ifndef _CUILT_NO_MAIN
@@ -844,10 +866,11 @@ int main(int argc, const char* argv[]) {
             OPTION("build", command = C_BUILD);
             else OPTION("run", command = C_RUN);
             else OPTION("test", command = C_TEST);
+            else OPTION("deploy", command = C_DEPLOY);
             else OPTION("clean", command = C_CLEAN);
             else FATAL("unknown command: %s", argv[i]);
 
-            config.__internal.passthrough = argv + i + 1;
+            config.__internal.extra_args = argv + i + 1;
             break;
         }
 #undef OPTION
@@ -869,6 +892,9 @@ int main(int argc, const char* argv[]) {
             if (config.process.build)
                 config.process.build(argv);
             SAFECALL(test);
+            break;
+        case C_DEPLOY:
+            SAFECALL(deploy);
             break;
         case C_CLEAN:
             SAFECALL(clean);
