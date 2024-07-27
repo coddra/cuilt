@@ -264,7 +264,7 @@ struct config_t default_config(void) {
             .command = "cc",
             .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
             .debug_flags = LIST("-g", "-O0"),
-            .release_flags = LIST("-O3"),
+            .release_flags = LIST("-O3", "-dNDEBUG"),
             .pp = "cpp",
         },
         .process = {
