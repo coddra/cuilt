@@ -1,10 +1,10 @@
 # Cuilt
 
-Cuilt is a corss-platform build system for C that does not need installation. To see in-production usage, check out [collaps](https://github.com/coddra/collaps).
+Cuilt is a build system for C that does not need installation. To see in-production usage, check out [collaps](https://github.com/coddra/collaps).
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
-**Disclaimer:** *Still under development. Mostly tested on linux, does not work on windows, not tested on macos. Stating it is cross-platform is a bit bold for now.*
+**Cuilt is not yet crossplatform.** Works on linux for now.
 
 ## Usage
 
