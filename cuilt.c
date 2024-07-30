@@ -173,6 +173,7 @@ strlist mklist(size_t count, ...);
 strlist* mklistlist(size_t count, ...);
 size_t length(strlist list);
 strlist append(strlist list, const char* item);
+strlist concat(strlist list1, strlist list2);
 strlist delete(strlist list, size_t index);
 strlist split(const char* sep, const char* body);
 char* join(const char* sep, strlist list);
@@ -360,12 +361,9 @@ void msg(enum LOG_LEVEL level, const char* fmt, ...) {
 }
 
 char* reallocat(char* dest, const char* src) {
-    if (!dest) {
-        dest = (char*)malloc(strlen(src) + 1);
-        dest[0] = '\0';
-    } else {
-        dest = (char*)realloc(dest, strlen(dest) + strlen(src) + 1);
-    }
+    size_t len = dest ? strlen(dest) : 0;
+    dest = (char*)realloc(dest, len + strlen(src) + 1);
+    dest[len] = '\0';
     strcat(dest, src);
     return dest;
 }
@@ -431,6 +429,15 @@ strlist append(strlist list, const char* item) {
     list[len] = item;
     list[len + 1] = NULL;
     return list;
+}
+
+strlist concat(strlist list1, strlist list2) { 
+    size_t len = length(list1);
+    size_t len2 = length(list2);
+    list1 = (strlist)realloc(list1, (len + len2 + 1) * sizeof(char*));
+    memmove(list1 + len, list2, len2 * sizeof(char*));
+    list1[len + len2] = NULL;
+    return list1;
 }
 
 strlist delete(strlist list, size_t index) {
@@ -694,52 +701,69 @@ void mk_all_dirs(const char *path) {
 
 int command(strlist* cmd, char** output) {
     char* strcmd = NULL;
+    strlist cmdlist = NULL;
     for (size_t i = 0; cmd[i] != NULL; i++) {
         for (size_t j = 0; cmd[i][j] != NULL; j++) {
-            if (strcmd == NULL) {
-                strcmd = argument(cmd[i][j]);
-            } else {
+            if (strcmd)
                 strcmd = reallocat(strcmd, " ");
-                strcmd = reallocat(strcmd, argument(cmd[i][j]));
-            }
+            strcmd = reallocat(strcmd, argument(cmd[i][j]));
         }
+        cmdlist = concat(cmdlist, cmd[i]);
     }
 
     DEBUG("running %s", strcmd);
 
+	if (!output) {
+        pid_t pid = fork();
+
+        if (pid < 0) {
+            ERROR("failed to run %s", strcmd);
+            free(strcmd);
+            return -1;
+        }
+
+        if (pid == 0) {
+            execvp(cmdlist[0], (char* const*)cmdlist);
+
+            ERROR("failed to run %s", strcmd);
+            free(strcmd);
+            return -1;
+        } else {
+            wait(NULL);
+        }
+
+        free(strcmd);
+        return 0;
+	}
+
     FILE *pipe = popen(strcmd, "r");
     if (!pipe) {
         ERROR("failed to run %s", strcmd);
+        free(strcmd);
         return -1;
     }
 
     char buffer[BUFFER_SIZE];
     size_t content_size = BUFFER_SIZE;
-    char *content = (char*)malloc(content_size);
+    *output = (char*)malloc(content_size);
 
     size_t total_read = 0;
     while (fgets(buffer, sizeof(buffer), pipe)) {
         size_t len = strlen(buffer);
         if (total_read + len + 1 >= content_size) {
             content_size *= 2;
-            content = (char*)realloc(content, content_size);
+            *output = (char*)realloc(*output, content_size);
         }
-        strcpy(content + total_read, buffer);
+        strcpy(*output + total_read, buffer);
         total_read += len;
     }
-    content[total_read] = '\0';
-
-    if (output)
-        *output = content;
-    else
-        free(content);
+    (*output)[total_read] = '\0';
     
     int res = pclose(pipe);
     if (res != 0)
         ERROR("%s exited with status %d", strcmd, res);
 
     free(strcmd);
-
     return res;
 }
 
