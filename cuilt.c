@@ -922,6 +922,7 @@ int main(int argc, const char* argv[]) {
             SAFECALL(test);
             break;
         case C_DEPLOY:
+            config.__internal.release = true;
             SAFECALL(deploy);
             break;
         case C_CLEAN:
