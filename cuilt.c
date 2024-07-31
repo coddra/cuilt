@@ -268,7 +268,7 @@ struct config_t default_config(void) {
             .command = "cc",
             .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
             .debug_flags = LIST("-g", "-O0"),
-            .release_flags = LIST("-O3", "-dNDEBUG"),
+            .release_flags = LIST("-O3", "-DNDEBUG"),
             .pp = "cpp",
         },
         .process = {
@@ -691,7 +691,7 @@ void mk_all_dirs(const char *path) {
         *next = '\0';
         MKDIR(p);
         *next = PATH_SEP[0];
-        next = strchr(p, PATH_SEP[0]);
+        next = strchr(++next, PATH_SEP[0]);
     }
     MKDIR(p);
 
@@ -791,12 +791,13 @@ int __run(strlist argv) {
 }
 
 int __build(strlist argv) {
-    MKDIRS(config.project.bin);
+    char* bin = parent(output);
+    MKDIRS(bin);
 
     bool any_change = false;
     strlist objs = NULL;
     for (int i = 0; source[i] != NULL; i++) {
-        char* obj = PATH(config.project.bin, reallocat(no_extension(basename(source[i])), ".o"));
+        char* obj = PATH(bin, reallocat(no_extension(basename(source[i])), ".o"));
         objs = append(objs, obj);
 
         if(!config.__internal.force && !is_outdated(obj, get_deps(source[i])))
@@ -859,9 +860,6 @@ int main(int argc, const char* argv[]) {
         return CMDL(argv, config.__internal.project_exe);
     }
 
-    source = FILES(config.project.source, ".c");
-    output = PATH(config.project.bin, config.project.name);
-
     if (config.process.init)
         config.process.init(argv);
 
@@ -902,6 +900,9 @@ int main(int argc, const char* argv[]) {
 #undef OPTION
 #undef CHECK_ARG
     }
+
+    source = FILES(config.project.source, ".c");
+    output = PATH(config.project.bin, config.__internal.release ? "release" : "debug", config.project.name);
 
     switch (command) {
 #define SAFECALL(func) if (config.process.func == NULL) FATAL(#func " not implemented"); config.process.func(argv)
