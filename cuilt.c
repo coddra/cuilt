@@ -214,7 +214,7 @@ static inline void MKDIR(const char* path) {
     if (mkdir(path, 0755) < 0) 
         ERROR("failed to create %s", path);
     else
-        INFO("created %s", path);
+        DEBUG("created %s", path);
 }
 static inline void TOUCH(const char* path) {
     if (exists(path))
@@ -222,7 +222,7 @@ static inline void TOUCH(const char* path) {
     if (open(path, O_CREAT | O_WRONLY, 0644) < 0)
         ERROR("failed to create %s", path);
     else
-        INFO("created %s", path);
+        DEBUG("created %s", path);
 }
 void mk_all_dirs(const char* path);
 #define MKDIRS(path) mk_all_dirs(path)
