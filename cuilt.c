@@ -701,14 +701,15 @@ void mk_all_dirs(const char *path) {
 
 int command(strlist* cmd, char** output) {
     char* strcmd = NULL;
-    strlist cmdlist = NULL;
+    strlist listcmd = NULL;
     for (size_t i = 0; cmd[i] != NULL; i++) {
         for (size_t j = 0; cmd[i][j] != NULL; j++) {
             if (strcmd)
                 strcmd = reallocat(strcmd, " ");
             strcmd = reallocat(strcmd, argument(cmd[i][j]));
         }
-        cmdlist = concat(cmdlist, cmd[i]);
+        if (!output)
+            listcmd = concat(listcmd, cmd[i]);
     }
 
     DEBUG("running %s", strcmd);
@@ -716,24 +717,25 @@ int command(strlist* cmd, char** output) {
 	if (!output) {
         pid_t pid = fork();
 
-        if (pid < 0) {
-            ERROR("failed to run %s", strcmd);
-            free(strcmd);
-            return -1;
+#define FAIL { \
+            ERROR("failed to run %s", strcmd); \
+            free(strcmd); \
+            free(listcmd); \
+            return -1; \
         }
+        if (pid < 0)
+            FAIL;
 
         if (pid == 0) {
-            execvp(cmdlist[0], (char* const*)cmdlist);
-
-            ERROR("failed to run %s", strcmd);
-            free(strcmd);
-            return -1;
-        } else {
-            wait(NULL);
+            execvp(listcmd[0], (char* const*)listcmd);
+            FAIL;
         }
-
+        
         free(strcmd);
-        return 0;
+        free(listcmd);
+        int res;
+        wait(&res);
+        return res;
 	}
 
     FILE *pipe = popen(strcmd, "r");
