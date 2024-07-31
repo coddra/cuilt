@@ -904,8 +904,9 @@ int main(int argc, const char* argv[]) {
     source = FILES(config.project.source, ".c");
     output = PATH(config.project.bin, config.__internal.release ? "release" : "debug", config.project.name);
 
+    int res = 0;
     switch (command) {
-#define SAFECALL(func) if (config.process.func == NULL) FATAL(#func " not implemented"); config.process.func(argv)
+#define SAFECALL(func) if (config.process.func == NULL) FATAL(#func " not implemented"); res = config.process.func(argv)
         case C_BUILD:
             SAFECALL(build);
             break;
@@ -929,7 +930,7 @@ int main(int argc, const char* argv[]) {
 #undef SAFECALL
     }
 
-    return 0;
+    return res;
 }
 #endif // _CUILT_NO_MAIN
 #endif // _CUILT_NO_IMPLEMENTATION
