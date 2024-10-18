@@ -300,10 +300,14 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
     MERGE(project.test);
     MERGE(cc.command);
     MERGE(cc.flags);
+    MERGE(cc.debug_flags);
+    MERGE(cc.release_flags);
+    MERGE(cc.pp);
     MERGE(process.init);
     MERGE(process.build);
     MERGE(process.run);
     MERGE(process.test);
+    MERGE(process.deploy);
     MERGE(process.clean);
     MERGE(log_level);
     MERGE(__internal.extra_args);
