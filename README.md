@@ -30,17 +30,17 @@ Note, that `cuilt.c` contains the main function and other impementations too. De
 ## Synopsis
 
 ```sh
-./project [ARGS] [COMMAND] [EXTRA-ARGS]
+./project [OPTIONS] [COMMAND] [EXTRA-ARGS]
 ```
 
 Commands:
 - `build` - build the project *- default*
-- `run` - run the executable with the `EXTRA-ARGS`
+- `run` - run the executable with `EXTRA-ARGS` if specified
 - `test` - call the test function *- set `config.process.test` first (see below)*
-- `deploy` - test the project and stage, commit, push changes if test was successful. `join(" ", EXTRA-ARGS)` becomes the commit message
+- `deploy` - test the project than stage, commit, and push changes if test was successful. `join(" ", EXTRA-ARGS)` becomes the commit message
 - `clean` - clean *- set `config.process.clean` first (see below)*
 
-Args:
+Options:
 - `-cc <CC>` - override `config.cc.command` with `CC`
 - `-cflags <CFLAGS>` - override `config.cc.flags` with `split(" ", CFLAGS)`
 - `-log <LEVEL:debug|info|warn|error|fatal>` - override `config.log_level` with `LEVEL`
@@ -66,6 +66,7 @@ CONFIG({
         .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         .debug_flags = LIST("-g", "-O0"),
         .release_flags = LIST("-O3", "-dNDEBUG"),
+        .pp = "cpp"              // preprocessor command
     },
     .process = {                 // can be set to customize commands
         .init = NULL,            // will be called before any command
@@ -75,6 +76,6 @@ CONFIG({
         .deploy = &__deploy,     // default deploy function
         .clean = NULL,
     },
-    .log_level = LOG_INFO,       // log level
+    .log_level = LOG_INFO,       // default log level
 })
 ```
