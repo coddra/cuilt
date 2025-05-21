@@ -90,15 +90,21 @@ By using the Software, Users and Entities agree to the terms of this license.
     18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))(0)
 #define MK_VA(...) IF_ELSE(HAS_ARGS(__VA_ARGS__))(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)(0)
 
+#define TERM_DEFAULT "\033[0m"
+#define TERM_WHITE   "\033[1;37m"
+#define TERM_CYAN    "\033[1;36m"
+#define TERM_YELLOW  "\033[1;33m"
+#define TERM_RED     "\033[1;31m"
+
 typedef const char** strlist;
 
-enum LOG_LEVEL {
+enum LOG_LVL {
     LOG_NULL = 0,
-    LOG_DEBUG = 1,
-    LOG_INFO = 2,
-    LOG_WARN = 3,
-    LOG_ERROR = 4,
-    LOG_FATAL = 5,
+    LOG_DBG = 1,
+    LOG_INF = 2,
+    LOG_WRN = 3,
+    LOG_ERR = 4,
+    LOG_FTL = 5,
 };
 
 enum COMMAND {
@@ -133,7 +139,7 @@ struct config_t {
         process_t deploy;
         process_t clean;
     } process;
-    enum LOG_LEVEL log_level;
+    enum LOG_LVL log_level;
 
     struct {
         const char* project_c;
@@ -153,15 +159,15 @@ struct config_t merge_config(struct config_t a, struct config_t b);
     return res; \
 }
 
-void msg(enum LOG_LEVEL level, const char* fmt, ...);
-#define DEBUG(...) msg(LOG_DEBUG, __VA_ARGS__)
-#define INFO(...) msg(LOG_INFO, __VA_ARGS__)
-#define WARN(...) msg(LOG_WARN, __VA_ARGS__)
+void msg(enum LOG_LVL level, const char* fmt, ...);
+#define DEBUG(...) msg(LOG_DBG, __VA_ARGS__)
+#define INFO(...) msg(LOG_INF, __VA_ARGS__)
+#define WARN(...) msg(LOG_WRN, __VA_ARGS__)
 #ifdef ERROR
 #undef ERROR
 #endif
-#define ERROR(...) msg(LOG_ERROR, __VA_ARGS__)
-#define FATAL(...) msg(LOG_FATAL, __VA_ARGS__)
+#define ERROR(...) msg(LOG_ERR, __VA_ARGS__)
+#define FATAL(...) msg(LOG_FTL, __VA_ARGS__)
 
 #define BUFFER_SIZE 4096
 
@@ -279,7 +285,7 @@ struct config_t default_config(void) {
             .deploy = &__deploy,
             .clean = NULL,
         },
-        .log_level = LOG_INFO,
+        .log_level = LOG_INF,
         .__internal = {
             .extra_args = NULL,
             .project_c = NULL,
@@ -317,51 +323,29 @@ struct config_t merge_config(struct config_t a, struct config_t b) {
     return res;
 }
 
-void msg(enum LOG_LEVEL level, const char* fmt, ...) {
+void msg(enum LOG_LVL level, const char* fmt, ...) {
     if (level < config.log_level)
         return;
 
-    bool color = isatty(fileno(stderr));
-
     switch (level) {
-#define COLOR(color) if (color) fputs("\033[1;" #color "m", stderr)
-        case LOG_DEBUG:
-            COLOR(37);
-            fputs("[DBG] ", stderr);
-            break;
-        case LOG_INFO:
-            COLOR(36);
-            fputs("[INF] ", stderr);
-            break;
-        case LOG_WARN:
-            COLOR(33);
-            fputs("[WRN] ", stderr);
-            break;
-        case LOG_ERROR:
-            COLOR(31);
-            fputs("[ERR] ", stderr);
-            break;
-        case LOG_FATAL:
-            COLOR(31);
-            fputs("[FTL] ", stderr);
-            break;
+#define CASE(level, color) case LOG_##level: fputs(isatty(fileno(stderr)) ? color "[" #level "]" TERM_DEFAULT " " : "[" #level "] ", stderr); break
+        CASE(DBG, TERM_WHITE);
+        CASE(INF, TERM_CYAN);
+        CASE(WRN, TERM_YELLOW);
+        CASE(ERR, TERM_RED);
+        CASE(FTL, TERM_RED);
+#undef CASE
         default: break;
     }
-
-    if (color)
-        fputs("\033[0m", stderr);
 
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
-    fputs("\n", stderr);
+    fputc('\n', stderr);
 
-    if (level == LOG_FATAL) {
-        fflush(stdout);
-        fflush(stderr);
+    if (level == LOG_FTL)
         exit(1);
-    }
 }
 
 char* reallocat(char* dest, const char* src) {
@@ -858,7 +842,7 @@ int main(int argc, const char* argv[]) {
 
     if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
         INFO("rebuilding...");
-        config.log_level = LOG_FATAL;
+        config.log_level = LOG_FTL;
         if (CMD(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
             FATAL("failed to rebuild %s", argv[0]);
         return CMDL(argv, config.__internal.project_exe);
@@ -876,11 +860,11 @@ int main(int argc, const char* argv[]) {
             config.cc.command = argv[i];
         }) else OPTION("-log", {
             NEXT_ARG("-log");
-            OPTION("debug", config.log_level = LOG_DEBUG);
-            else OPTION("info", config.log_level = LOG_INFO);
-            else OPTION("warn", config.log_level = LOG_WARN);
-            else OPTION("error", config.log_level = LOG_ERROR);
-            else OPTION("fatal", config.log_level = LOG_FATAL);
+            OPTION("debug", config.log_level = LOG_DBG);
+            else OPTION("info", config.log_level = LOG_INF);
+            else OPTION("warn", config.log_level = LOG_WRN);
+            else OPTION("error", config.log_level = LOG_ERR);
+            else OPTION("fatal", config.log_level = LOG_FTL);
             else ERROR("unknown log level: %s", argv[i]);
         }) else OPTION("-cflags", {
             NEXT_ARG("-cflags");
@@ -915,7 +899,7 @@ int main(int argc, const char* argv[]) {
             SAFECALL(build);
             break;
         case C_RUN:
-            config.log_level = LOG_FATAL;
+            config.log_level = LOG_FTL;
             if (config.process.build)
                 config.process.build(argv);
             SAFECALL(run);
