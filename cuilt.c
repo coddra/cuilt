@@ -12,7 +12,7 @@ copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the
 Software, subject to the following conditions:
 
 Users and Entities must provide proper credit, including the copyright holder's
-name, a link to the original source, and an indication of any changes made to 
+name, a link to the original source, and an indication of any changes made to
 the Software. This credit must be included in the software's documentation, in
 the "About" section, or any other prominent location in the distribution.
 
@@ -20,21 +20,21 @@ Credit must not suggest the coptright holder endorses the Users, Entities, or
 their use of the Software.
 
 Entities are strictly prohibited from using the Software for commercial
-purposes without obtaining a separate commercial license from the copyright 
+purposes without obtaining a separate commercial license from the copyright
 holder.
 
-Entities desiring to use the Software for commercial purposes must contact the 
+Entities desiring to use the Software for commercial purposes must contact the
 copyright holder to negotiate terms and obtain a commercial license.
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 By using the Software, Users and Entities agree to the terms of this license.
@@ -134,7 +134,7 @@ struct config_t {
         process_t clean;
     } process;
     enum LOG_LEVEL log_level;
-    
+
     struct {
         const char* project_c;
         const char* project_exe;
@@ -211,7 +211,7 @@ char* no_extension(const char* path);
 static inline void MKDIR(const char* path) {
     if (exists(path))
         return;
-    if (mkdir(path, 0755) < 0) 
+    if (mkdir(path, 0755) < 0)
         ERROR("failed to create %s", path);
     else
         DEBUG("created %s", path);
@@ -394,25 +394,25 @@ char* argument(const char* str) {
 
 strlist mklist(size_t count, ...) {
     strlist res = (strlist)malloc((count + 1) * sizeof(char*));
-    
+
     va_list ap;
     va_start(ap, count);
     for (int i = 0; i < count; i++)
         res[i] = va_arg(ap, char*);
     va_end(ap);
-    
+
     res[count] = NULL;
     return res;
 }
 strlist* mklistlist(size_t count, ...) {
     strlist* res = (strlist*)malloc((count + 1) * sizeof(strlist));
-    
+
     va_list ap;
     va_start(ap, count);
     for (int i = 0; i < count; i++)
         res[i] = va_arg(ap, strlist);
     va_end(ap);
-    
+
     res[count] = NULL;
     return res;
 }
@@ -424,7 +424,7 @@ size_t length(strlist list) {
     size_t res = 0;
     while (list[res])
         res++;
-    return res; 
+    return res;
 }
 
 strlist append(strlist list, const char* item) {
@@ -435,7 +435,7 @@ strlist append(strlist list, const char* item) {
     return list;
 }
 
-strlist concat(strlist list1, strlist list2) { 
+strlist concat(strlist list1, strlist list2) {
     size_t len = length(list1);
     size_t len2 = length(list2);
     list1 = (strlist)realloc(list1, (len + len2 + 1) * sizeof(char*));
@@ -522,7 +522,7 @@ bool modified_later(const char* p1, const char* p2)
         ERROR("could not get time of %s", p1);
     int p1_time = statbuf.st_mtime;
 
-    if (stat(p2, &statbuf) < 0) 
+    if (stat(p2, &statbuf) < 0)
         ERROR("could not get time of %s", p2);
     int p2_time = statbuf.st_mtime;
 
@@ -532,7 +532,7 @@ bool modified_later(const char* p1, const char* p2)
 strlist get_deps(const char* path) {
     char* buf = NULL;
     CMDO(&buf, config.cc.pp, "-MM", path);
-    
+
     strlist res = split(" ", buf);
     free(buf);
 
@@ -541,7 +541,7 @@ strlist get_deps(const char* path) {
         if (res[i][0] == '\\')
             delete(res, i);
 
-    size_t len = length(res);        
+    size_t len = length(res);
     size_t lastlen = strlen(res[len - 1]);
     *(char*)(&res[len - 1][lastlen - 1]) = '\0';
 
@@ -587,17 +587,17 @@ strlist filter(strlist list, const char* ext) {
                 len++;
             continue;
         }
-        
+
         if (cut_start == -1) {
             cut_start = i;
             continue;
         }
-        
+
         if (include_count == 0) {
             cut_count++;
             continue;
         }
-        
+
         memmove(list + cut_start, list + cut_start + cut_count, include_count * sizeof(char*));
         cut_start += include_count;
         cut_count++;
@@ -686,9 +686,9 @@ void mk_all_dirs(const char *path) {
     size_t len = strlen(path);
     char* p = (char*)malloc(len + 1);
     memcpy(p, path, len + 1);
-    
+
     char* next = strchr(p, PATH_SEP[0]);
-    if (next == p) 
+    if (next == p)
         next = strchr(next + 1, PATH_SEP[0]);
 
     while (next != NULL) {
@@ -734,7 +734,7 @@ int command(strlist* cmd, char** output) {
             execvp(listcmd[0], (char* const*)listcmd);
             FAIL;
         }
-        
+
         free(strcmd);
         free(listcmd);
         int res;
@@ -764,7 +764,7 @@ int command(strlist* cmd, char** output) {
         total_read += len;
     }
     (*output)[total_read] = '\0';
-    
+
     int res = pclose(pipe);
     if (res != 0)
         ERROR("%s exited with status %d", strcmd, res);
