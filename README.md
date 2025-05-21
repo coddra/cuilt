@@ -1,6 +1,6 @@
 # Cuilt
 
-Cuilt is a build system for C that does not need installation. To see in-production usage, check out [collaps](https://github.com/coddra/collaps).
+Cuilt is a build system for C that doesn't need installation. To see in-production use, check out [collaps](https://github.com/coddra/collaps).
 
 Inspired by but not based on Tsoding's [nobuild](https://github.com/tsoding/nobuild).
 
@@ -25,7 +25,7 @@ cc project.c -o project
 
 You don't have to build the `project` tool ever again, if you change the configuration, it will automatically rebuild itself.
 
-Note, that `cuilt.c` contains the main function and other impementations too. Define `_CUILT_NO_MAIN` or `_CUILT_NO_IMPLEMENTATION` to disable them.
+Note, that `cuilt.c` contains the main function and other impementations too. Define macros `_CUILT_NO_MAIN` or `_CUILT_NO_IMPLEMENTATION` to disable them.
 
 ## Synopsis
 
@@ -35,7 +35,7 @@ Note, that `cuilt.c` contains the main function and other impementations too. De
 
 Commands:
 - `build` - build the project *- default*
-- `run` - run the executable with `EXTRA-ARGS` if specified
+- `run` - run the executable *- with `EXTRA-ARGS`, if specified*
 - `test` - call the test function *- set `config.process.test` first (see below)*
 - `deploy` - test the project than stage, commit, and push changes if test was successful. `join(" ", EXTRA-ARGS)` becomes the commit message
 - `clean` - clean *- set `config.process.clean` first (see below)*
@@ -57,6 +57,7 @@ Currently available config options are (with the default values):
 CONFIG({
     .project = {
         .name = basename(cwd()), // name of the project and the output executable
+                                 // the process will chdir to the containing directory
         .source = "src",         // source directory
         .bin = "bin",            // output directory
         .test = "test",          // test directory
@@ -66,7 +67,7 @@ CONFIG({
         .flags = LIST("-Wall", "-Wextra", "-Werror", "-std=c11"),
         .debug_flags = LIST("-g", "-O0"),
         .release_flags = LIST("-O3", "-dNDEBUG"),
-        .pp = "cpp"              // preprocessor command
+        .pp = "cpp"              // preprocessor command - needed to determine file dependencies
     },
     .process = {                 // can be set to customize commands
         .init = NULL,            // will be called before any command
@@ -76,6 +77,6 @@ CONFIG({
         .deploy = &__deploy,     // default deploy function
         .clean = NULL,
     },
-    .log_level = LOG_INFO,       // default log level
+    .log_level = LOG_INFO,       // log level
 })
 ```
