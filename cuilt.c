@@ -841,7 +841,7 @@ int main(int argc, const char* argv[]) {
     config = merge_config(default_config(), __config());
 
     if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
-        INFO("rebuilding...");
+        INFO("self rebuild...");
         config.log_level = LOG_FTL;
         if (CMD(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
             FATAL("failed to rebuild %s", argv[0]);
