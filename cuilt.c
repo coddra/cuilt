@@ -194,7 +194,7 @@ bool contains(const char* a, const char* b);
 bool exists(const char* path);
 bool modified_later(const char* p1, const char* p2);
 
-strlist get_depst(const char* path);
+strlist get_deps(const char* path);
 bool is_outdated(const char *path, strlist deps);
 
 strlist files_in(const char* dir);
@@ -902,7 +902,7 @@ int main(int argc, const char* argv[]) {
             break;
         }
 #undef OPTION
-#undef CHECK_ARG
+#undef NEXT_ARG
     }
 
     source = FILES(config.project.source, ".c");
