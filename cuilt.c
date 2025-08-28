@@ -85,28 +85,21 @@ By using the Software, Users and Entities agree to the terms of this license.
 #define __ARG_COUNT(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, \
     _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43,   \
     _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, N, ...) N
-#define ARG_COUNT(...) IF_ELSE(HAS_ARGS(__VA_ARGS__))(__ARG_COUNT(__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, \
-    46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, \
-    18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))(0)
+#define ARG_COUNT(...) IF_ELSE(HAS_ARGS(__VA_ARGS__))(__ARG_COUNT(__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55,  \
+    54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, \
+    26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))(0)
 #define MK_VA(...) IF_ELSE(HAS_ARGS(__VA_ARGS__))(ARG_COUNT(__VA_ARGS__), __VA_ARGS__)(0)
 
-#define TERM_DEFAULT "\033[0m"
-#define TERM_WHITE   "\033[1;37m"
-#define TERM_CYAN    "\033[1;36m"
-#define TERM_YELLOW  "\033[1;33m"
-#define TERM_RED     "\033[1;31m"
-
 typedef const char** strlist;
+typedef int (*process_t)(strlist argv);
 
 enum LOG_LVL {
-    LOG_NULL = 0,
     LOG_DBG = 1,
     LOG_INF = 2,
     LOG_WRN = 3,
     LOG_ERR = 4,
     LOG_FTL = 5,
 };
-
 enum COMMAND {
     C_BUILD,
     C_RUN,
@@ -114,8 +107,6 @@ enum COMMAND {
     C_DEPLOY,
     C_CLEAN
 };
-
-typedef int (*process_t)(strlist argv);
 
 struct config_t {
     struct {
@@ -150,24 +141,20 @@ struct config_t {
     } __internal;
 };
 extern struct config_t config;
-struct config_t default_config(void);
-struct config_t __config(void);
-struct config_t merge_config(struct config_t a, struct config_t b);
-#define CONFIG(...) struct config_t __config(void) { \
+struct config_t __config();
+struct config_t complete_config(struct config_t conf);
+#define CONFIG(...) struct config_t __config() { \
     struct config_t res = __VA_ARGS__; \
     res.__internal.project_c = __FILE__; \
     return res; \
 }
 
 void msg(enum LOG_LVL level, const char* fmt, ...);
-#define DEBUG(...) msg(LOG_DBG, __VA_ARGS__)
-#define INFO(...) msg(LOG_INF, __VA_ARGS__)
-#define WARN(...) msg(LOG_WRN, __VA_ARGS__)
-#ifdef ERROR
-#undef ERROR
-#endif
-#define ERROR(...) msg(LOG_ERR, __VA_ARGS__)
-#define FATAL(...) msg(LOG_FTL, __VA_ARGS__)
+#define DBG(...) msg(LOG_DBG, __VA_ARGS__)
+#define INF(...) msg(LOG_INF, __VA_ARGS__)
+#define WRN(...) msg(LOG_WRN, __VA_ARGS__)
+#define ERR(...) msg(LOG_ERR, __VA_ARGS__)
+#define FTL(...) msg(LOG_FTL, __VA_ARGS__)
 
 #define BUFFER_SIZE 4096
 
@@ -183,21 +170,15 @@ strlist concat(strlist list1, strlist list2);
 strlist delete(strlist list, size_t index);
 strlist split(const char* sep, const char* body);
 char* join(const char* sep, strlist list);
-inline static char* join_free(const char* sep, strlist list) {
-    char* res = join(sep, list);
-    free(list);
-    return res;
-}
 #define LIST(...) mklist(MK_VA(__VA_ARGS__))
 #define LIST_LIST(...) mklistlist(MK_VA(__VA_ARGS__))
 
-#define PATH(...) join_free(PATH_SEP, LIST(__VA_ARGS__))
+#define PATH(...) join(PATH_SEP, LIST(__VA_ARGS__))
 
 bool starts_with(const char* a, const char* b);
 bool ends_with(const char* a, const char* b);
 bool contains(const char* a, const char* b);
 
-bool exists(const char* path);
 bool modified_later(const char* p1, const char* p2);
 
 strlist get_deps(const char* path);
@@ -208,27 +189,28 @@ strlist filter(strlist list, const char* ext);
 
 char* read_file(const char* path);
 
-char* own_path(void);
-char* cwd(void);
+char* own_path();
+char* cwd();
 const char* basename(const char* path);
 char* no_extension(const char* path);
 
+#define EXISTS(path) (access(path, F_OK) == 0)
 #define FILES(dir, ext) filter(files_in(dir), ext)
 static inline void MKDIR(const char* path) {
-    if (exists(path))
+    if (EXISTS(path))
         return;
     if (mkdir(path, 0755) < 0)
-        ERROR("failed to create %s", path);
+        ERR("failed to create %s", path);
     else
-        DEBUG("created %s", path);
+        DBG("created %s", path);
 }
 static inline void TOUCH(const char* path) {
-    if (exists(path))
+    if (EXISTS(path))
         return;
     if (open(path, O_CREAT | O_WRONLY, 0644) < 0)
-        ERROR("failed to create %s", path);
+        ERR("failed to create %s", path);
     else
-        DEBUG("created %s", path);
+        DBG("created %s", path);
 }
 void mk_all_dirs(const char* path);
 #define MKDIRS(path) mk_all_dirs(path)
@@ -262,65 +244,24 @@ int __deploy(strlist argv);
 struct config_t config;
 strlist source;
 const char* output;
-struct config_t default_config(void) {
-    struct config_t res = {
-        .project = {
-            .name = basename(cwd()),
-            .source = "src",
-            .bin = "bin",
-            .test = "test",
-        },
-        .cc = {
-            .command = "cc",
-            .flags = LIST("-Wall", "-Werror", "-Wextra", "-std=c11"),
-            .debug_flags = LIST("-g", "-O0"),
-            .release_flags = LIST("-O3", "-DNDEBUG"),
-            .pp = "cpp",
-        },
-        .process = {
-            .init = NULL,
-            .build = &__build,
-            .run = &__run,
-            .test = NULL,
-            .deploy = &__deploy,
-            .clean = NULL,
-        },
-        .log_level = LOG_INF,
-        .__internal = {
-            .extra_args = NULL,
-            .project_c = NULL,
-            .project_exe = own_path(),
-            .release = false,
-            .force = false,
-        }
-    };
-    return res;
-}
-
-struct config_t merge_config(struct config_t a, struct config_t b) {
-    struct config_t res = a;
-#define MERGE(field) if (b.field) res.field = b.field
-    MERGE(project.name);
-    MERGE(project.source);
-    MERGE(project.bin);
-    MERGE(project.test);
-    MERGE(cc.command);
-    MERGE(cc.flags);
-    MERGE(cc.debug_flags);
-    MERGE(cc.release_flags);
-    MERGE(cc.pp);
-    MERGE(process.init);
-    MERGE(process.build);
-    MERGE(process.run);
-    MERGE(process.test);
-    MERGE(process.deploy);
-    MERGE(process.clean);
-    MERGE(log_level);
-    MERGE(__internal.extra_args);
-    MERGE(__internal.project_c);
-    MERGE(__internal.project_exe);
-#undef MERGE
-    return res;
+struct config_t complete_config(struct config_t conf) {
+#define INIT(field, default) if (!conf.field) conf.field = default
+    INIT(project.name, basename(cwd()));
+    INIT(project.source, "src");
+    INIT(project.bin, "bin");
+    INIT(project.test, "test");
+    INIT(cc.command, "cc");
+    INIT(cc.flags, LIST("-Wall", "-Werror", "-Wextra", "-std=c11"));
+    INIT(cc.debug_flags, LIST("-g", "-O0"));
+    INIT(cc.release_flags, LIST("-O3", "-DNDEBUG"));
+    INIT(cc.pp, "cpp");
+    INIT(process.build, &__build);
+    INIT(process.run, &__run);
+    INIT(process.deploy, &__deploy);
+    INIT(log_level, LOG_INF);
+#undef INIT
+    conf.__internal.project_exe = own_path();
+    return conf;
 }
 
 void msg(enum LOG_LVL level, const char* fmt, ...) {
@@ -328,12 +269,12 @@ void msg(enum LOG_LVL level, const char* fmt, ...) {
         return;
 
     switch (level) {
-#define CASE(level, color) case LOG_##level: fputs(isatty(fileno(stderr)) ? color "[" #level "]" TERM_DEFAULT " " : "[" #level "] ", stderr); break
-        CASE(DBG, TERM_WHITE);
-        CASE(INF, TERM_CYAN);
-        CASE(WRN, TERM_YELLOW);
-        CASE(ERR, TERM_RED);
-        CASE(FTL, TERM_RED);
+#define CASE(level, color) case LOG_##level: fputs(isatty(fileno(stderr)) ? color "[" #level "] \033[0m" : "[" #level "] ", stderr); break
+        CASE(DBG, "\033[1;37m");
+        CASE(INF, "\033[1;36m");
+        CASE(WRN, "\033[1;33m");
+        CASE(ERR, "\033[1;31m");
+        CASE(FTL, "\033[1;31m");
 #undef CASE
         default: break;
     }
@@ -367,13 +308,7 @@ char* enquote(const char* str) {
 }
 
 char* argument(const char* str) {
-    if (*str == '\0' || contains(str, " ")) {
-        return enquote(str);
-    } else {
-        char* res = (char*)malloc(strlen(str) + 1);
-        strcpy(res, str);
-        return res;
-    }
+    return *str == '\0' || contains(str, " ") ? enquote(str) : strdup(str);
 }
 
 strlist mklist(size_t count, ...) {
@@ -402,12 +337,8 @@ strlist* mklistlist(size_t count, ...) {
 }
 
 size_t length(strlist list) {
-    if (list == NULL)
-        return 0;
-
     size_t res = 0;
-    while (list[res])
-        res++;
+    for (; list && list[res]; res++);
     return res;
 }
 
@@ -437,9 +368,7 @@ strlist delete(strlist list, size_t index) {
 
 strlist split(const char* sep, const char* body) {
     strlist res = NULL;
-    size_t len = strlen(body);
-    char* tmp = (char*)malloc(len + 1);
-    memcpy(tmp, body, len + 1);
+    char* tmp = strdup(body);
     char* p = strtok(tmp, sep);
     while (p) {
         res = append(res, p);
@@ -451,15 +380,14 @@ strlist split(const char* sep, const char* body) {
 char* join(const char* sep, strlist list) {
     char* res;
     size_t len;
-    if (list[0] == NULL) {
+    if (length(list) == 0) {
         res = (char*)malloc(sizeof(char));
         res[0] = '\0';
         return res;
     } else {
-        len = strlen(list[0]);
-        res = (char*)malloc((len + 1) * sizeof(char));
-        memcpy(res, list[0], len);
+        res = strdup(list[0]);
     }
+    len = strlen(res);
     size_t sep_len = strlen(sep);
 
     for (size_t i = 1; list[i] != NULL; i++) {
@@ -477,25 +405,17 @@ char* join(const char* sep, strlist list) {
 bool starts_with(const char* a, const char* b) {
     size_t alen = strlen(a);
     size_t blen = strlen(b);
-    if (alen < blen)
-        return false;
-    return memcmp(a, b, blen) == 0;
+    return alen >= blen && memcmp(a, b, blen) == 0;
 }
 
 bool ends_with(const char* a, const char* b) {
     size_t alen = strlen(a);
     size_t blen = strlen(b);
-    if (alen < blen)
-        return false;
-    return memcmp(a + alen - blen, b, blen) == 0;
+    return alen >= blen && memcmp(a + alen - blen, b, blen) == 0;
 }
 
 bool contains(const char* a, const char* b) {
     return strstr(a, b) != NULL;
-}
-
-bool exists(const char* path) {
-    return access(path, F_OK) == 0;
 }
 
 bool modified_later(const char* p1, const char* p2)
@@ -503,11 +423,11 @@ bool modified_later(const char* p1, const char* p2)
     struct stat statbuf = {0};
 
     if (stat(p1, &statbuf) < 0)
-        ERROR("could not get time of %s", p1);
+        ERR("could not get time of %s", p1);
     int p1_time = statbuf.st_mtime;
 
     if (stat(p2, &statbuf) < 0)
-        ERROR("could not get time of %s", p2);
+        ERR("could not get time of %s", p2);
     int p2_time = statbuf.st_mtime;
 
     return p1_time > p2_time;
@@ -533,7 +453,7 @@ strlist get_deps(const char* path) {
 }
 
 bool is_outdated(const char *path, strlist deps) {
-    if (!exists(path))
+    if (!EXISTS(path))
         return true;
 
     for (int i = 0; deps[i] != NULL; i++) {
@@ -571,12 +491,10 @@ strlist filter(strlist list, const char* ext) {
                 len++;
             continue;
         }
-
         if (cut_start == -1) {
             cut_start = i;
             continue;
         }
-
         if (include_count == 0) {
             cut_count++;
             continue;
@@ -598,16 +516,14 @@ strlist filter(strlist list, const char* ext) {
 char* read_file(const char* path) {
     FILE *file = fopen(path, "r");
     if (!file) {
-        ERROR("failed to open file %s", path);
+        ERR("failed to open file %s", path);
         return NULL;
     }
 
     fseek(file, 0, SEEK_END);
     long length = ftell(file);
     fseek(file, 0, SEEK_SET);
-
     char* content = (char*)malloc(length + 1);
-
     fread(content, 1, length, file);
     content[length] = '\0';
 
@@ -615,29 +531,24 @@ char* read_file(const char* path) {
     return content;
 }
 
-char* own_path(void) {
+char* own_path() {
     char buffer[PATH_MAX] = {0};
     ssize_t len = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
     if (len < 0)
         return NULL;
-    char* result = (char*)malloc(len + 1);
-    strcpy(result, buffer);
-    return result;
+    return strdup(buffer);
 }
 
 char* parent(const char* path) {
-    size_t len = strlen(path);
+    char* last = strrchr(path, PATH_SEP[0]);
+    size_t len = last == NULL ? 0 : last - path;
     char* res = (char*)malloc(len + 1);
-    memcpy(res, path, len + 1);
-    char* last = strrchr(res, PATH_SEP[0]);
-    if (last == NULL)
-        res[0] = '\0';
-    else
-        *last = '\0';
+    strncpy(res, path, len);
+    res[len] = 0;
     return res;
 }
 
-char* cwd(void) {
+char* cwd() {
     char* res = (char*)malloc(PATH_MAX);
     getcwd(res, PATH_MAX);
     return res;
@@ -652,25 +563,17 @@ const char* basename(const char* path) {
 
 char* no_extension(const char* path) {
     const char* tmp = strrchr(path, '.');
-    char* res = NULL;
-    if (tmp == NULL) {
-        size_t len = strlen(path);
-        res = (char*)malloc(len + 1);
-        memcpy(res, path, len + 1);
-        return res;
-    }
+    if (tmp == NULL)
+        return strdup(path);
     size_t len = tmp - path;
-    res = (char*)malloc(len + 1);
+    char* res = (char*)malloc(len + 1);
     memcpy(res, path, len);
     res[len] = '\0';
     return res;
 }
 
 void mk_all_dirs(const char *path) {
-    size_t len = strlen(path);
-    char* p = (char*)malloc(len + 1);
-    memcpy(p, path, len + 1);
-
+    char* p = strdup(path);
     char* next = strchr(p, PATH_SEP[0]);
     if (next == p)
         next = strchr(next + 1, PATH_SEP[0]);
@@ -700,13 +603,13 @@ int command(strlist* cmd, char** output) {
             listcmd = concat(listcmd, cmd[i]);
     }
 
-    DEBUG("running %s", strcmd);
+    DBG("running %s", strcmd);
 
 	if (!output) {
         pid_t pid = fork();
 
 #define FAIL { \
-            ERROR("failed to run %s", strcmd); \
+            ERR("failed to run %s", strcmd); \
             free(strcmd); \
             free(listcmd); \
             return -1; \
@@ -728,7 +631,7 @@ int command(strlist* cmd, char** output) {
 
     FILE *pipe = popen(strcmd, "r");
     if (!pipe) {
-        ERROR("failed to run %s", strcmd);
+        ERR("failed to run %s", strcmd);
         free(strcmd);
         return -1;
     }
@@ -751,7 +654,7 @@ int command(strlist* cmd, char** output) {
 
     int res = pclose(pipe);
     if (res != 0)
-        ERROR("%s exited with status %d", strcmd, res);
+        ERR("%s exited with status %d", strcmd, res);
 
     free(strcmd);
     return res;
@@ -760,7 +663,7 @@ int command(strlist* cmd, char** output) {
 int testcmd(strlist* cmd, const char* desired_output) {
     char* output = NULL;
     int res = command(cmd, &output);
-    DEBUG("output:\n%s", output);
+    DBG("output:\n%s", output);
     if (res == 0 && strcmp(output, desired_output) != 0)
         res = -1;
     free(output);
@@ -796,55 +699,55 @@ int __build(strlist argv) {
             config.cc.flags, config.__internal.release ? config.cc.release_flags : config.cc.debug_flags),
             NULL);
         if (res != 0)
-            FATAL("cannot compile %s", source[i]);
+            FTL("cannot compile %s", source[i]);
     }
 
     if (!any_change) {
-        DEBUG("no changes made, skipping build");
+        DBG("no changes made, skipping build");
         return 0;
     }
 
     int res = CC(objs, output);
     if (res == 0)
-        INFO("build successful");
+        INF("build successful");
     else
-        FATAL("build failed");
+        FTL("build failed");
 
     return res;
 }
 
 int __deploy(strlist argv) {
     if (length(config.__internal.extra_args) == 0)
-        FATAL("no commit message specified");
+        FTL("no commit message specified");
 
     if (config.process.test) {
         if (config.process.test(argv) != 0)
-            FATAL("test failed, deployment canceled");
+            FTL("test failed, deployment canceled");
     }
 
     if (CMD("git", "add", "-A") != 0 ||
         CMD("git", "commit", "-m", join(" ", config.__internal.extra_args)) != 0 ||
         CMD("git", "push") != 0)
-        FATAL("deployment failed");
+        FTL("deployment failed");
     else
-        INFO("deployment successful");
+        INF("deployment successful");
     return 0;
 }
 
 #ifndef _CUILT_NO_MAIN
 int main(int argc, const char* argv[]) {
-    chdir(parent(argv[0]));
+    const char* arg0 = argv[0];
+    delete(argv, 0);
 
-    memmove(argv, argv + 1, (argc - 1) * sizeof(char*));
-    argv[argc - 1] = NULL;
+    chdir(parent(arg0));
 
-    config = merge_config(default_config(), __config());
+    config = complete_config(__config());
 
     if (modified_later(config.__internal.project_c, config.__internal.project_exe)) {
-        INFO("self rebuild...");
+        INF("self rebuild...");
         config.log_level = LOG_FTL;
         if (CMD(config.cc.command, "-o", config.__internal.project_exe, config.__internal.project_c) != 0)
-            FATAL("failed to rebuild %s", argv[0]);
+            FTL("failed to rebuild %s", arg0);
         return CMDL(argv, config.__internal.project_exe);
     }
 
@@ -854,7 +757,7 @@ int main(int argc, const char* argv[]) {
     enum COMMAND command = C_BUILD;
     for (size_t i = 0; argv[i] != NULL; i++) {
 #define OPTION(name, action) if (strcmp(argv[i], name) == 0) action
-#define NEXT_ARG(option) if (argv[++i] == NULL) FATAL("missing argument for " option)
+#define NEXT_ARG(option) if (argv[++i] == NULL) FTL("missing argument for " option)
         OPTION("-cc", {
             NEXT_ARG("-cc");
             config.cc.command = argv[i];
@@ -865,7 +768,7 @@ int main(int argc, const char* argv[]) {
             else OPTION("warn", config.log_level = LOG_WRN);
             else OPTION("error", config.log_level = LOG_ERR);
             else OPTION("fatal", config.log_level = LOG_FTL);
-            else ERROR("unknown log level: %s", argv[i]);
+            else ERR("unknown log level: %s", argv[i]);
         }) else OPTION("-cflags", {
             NEXT_ARG("-cflags");
             config.cc.flags = split(" ", argv[i]);
@@ -873,14 +776,14 @@ int main(int argc, const char* argv[]) {
         else OPTION("-release", config.__internal.release = true);
         else OPTION("-force", config.__internal.force = true);
         else if (argv[i][0] == '-') {
-            ERROR("unknown option: %s", argv[i]);
+            ERR("unknown option: %s", argv[i]);
         } else {
             OPTION("build", command = C_BUILD);
             else OPTION("run", command = C_RUN);
             else OPTION("test", command = C_TEST);
             else OPTION("deploy", command = C_DEPLOY);
             else OPTION("clean", command = C_CLEAN);
-            else FATAL("unknown command: %s", argv[i]);
+            else FTL("unknown command: %s", argv[i]);
 
             config.__internal.extra_args = argv + i + 1;
             break;
@@ -894,7 +797,7 @@ int main(int argc, const char* argv[]) {
 
     int res = 0;
     switch (command) {
-#define SAFECALL(func) if (config.process.func == NULL) FATAL(#func " not implemented"); res = config.process.func(argv)
+#define SAFECALL(func) if (config.process.func == NULL) FTL(#func " not implemented"); res = config.process.func(argv)
         case C_BUILD:
             SAFECALL(build);
             break;
