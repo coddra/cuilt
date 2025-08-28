@@ -92,6 +92,7 @@ By using the Software, Users and Entities agree to the terms of this license.
 
 typedef const char** strlist;
 typedef int (*process_t)(strlist argv);
+typedef bool (*predicate_t)(const char* item, const char* value);
 
 enum LOG_LVL {
     LOG_DBG = 1,
@@ -185,7 +186,7 @@ strlist get_deps(const char* path);
 bool is_outdated(const char *path, strlist deps);
 
 strlist files_in(const char* dir);
-strlist filter(strlist list, const char* ext);
+strlist filter(strlist list, predicate_t predicate, const char* ext);
 
 char* read_file(const char* path);
 
@@ -195,7 +196,7 @@ const char* basename(const char* path);
 char* no_extension(const char* path);
 
 #define EXISTS(path) (access(path, F_OK) == 0)
-#define FILES(dir, ext) filter(files_in(dir), ext)
+#define FILES(dir, ext) filter(files_in(dir), &ends_with, ext)
 static inline void MKDIR(const char* path) {
     if (EXISTS(path))
         return;
@@ -478,13 +479,13 @@ strlist files_in(const char* dir) {
     return res;
 }
 
-strlist filter(strlist list, const char* ext) {
+strlist filter(strlist list, predicate_t predicate, const char* ext) {
     int cut_start = -1;
     int cut_count = 1;
     int include_count = 0;
     size_t len = 0;
     for (size_t i = 0; list[i] != NULL; i++) {
-        if (ends_with(list[i], ext)) {
+        if (predicate(list[i], ext)) {
             if (cut_start != -1)
                 include_count++;
             else
